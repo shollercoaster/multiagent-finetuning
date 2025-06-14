@@ -173,8 +173,13 @@ if __name__ == "__main__":
 
         print("File id: ", file_ids)
         file_id = file_ids[0].id
+        finetuned_model_ids = []
         for i in range(nagent):
             job_id = client.fine_tuning.jobs.create(training_file=file_ids[i].id, model=model_ids[i], hyperparameters={'n_epochs': 2, 'batch_size': 1, 'learning_rate_multiplier': 1})
+            finetuned_model_ids.append(job_id.fine_tuned_model)
             print(i, job_id)
         print(answers_dict)
         print(job_id)
+        with open("finetuned_generator_model_ids.json", "w") as f:
+            json.dump(finetuned_model_ids, f)
+
