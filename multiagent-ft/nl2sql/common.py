@@ -32,6 +32,13 @@ PROMPT_TMPL_SQL = (
     "### SQL:\n"
 )
 
+PROMPT_CODE_REPR_TEMPLATE_SINGLE = (
+    "/* Given the following database schema : */\n"
+    "{schema}\n\n"
+    "/* Answer the following : {question} */\n"
+    "SELECT"
+)
+
 ########################################
 # Schema loader from *_tables.json #####
 ########################################
@@ -59,6 +66,30 @@ def _schema_map(split_root: Path):
         ]
     return mapping
 
+def _code_repr_template_schema_map(tables_json_path: Path):
+    """Returns {db_id: CREATE TABLE ...} formatted schema string per DB."""
+    with open(tables_json_path, "r", encoding="utf-8") as f:
+        dbs = json.load(f)
+
+    db_schemas = {}
+    for db in dbs:
+        schema = []
+        for table_idx, table in enumerate(db["table_names_original"]):
+            cols = [
+                f"{col_name} {db['column_types'][i]}"
+                for i, (t_idx, col_name) in enumerate(db["column_names_original"])
+                if t_idx == table_idx and col_name.lower() != "null"
+            ]
+            pk = db["primary_keys"]
+            pk_str = ", ".join(db["column_names_original"][i][1] for i in pk if db["column_names_original"][i][0] == table_idx)
+            linebreak_joined_cols = ',\n  '.join(cols)
+            primary_key = f",\n  PRIMARY KEY ({pk_str})" if pk_str else ""
+            schema.append(f"CREATE TABLE {table} (\n  {linebreak_joined_cols}{primary_key}\n);")
+
+            # schema.append(f"CREATE TABLE {table} (\n  {',\n  '.join(cols)}" + (f",\n  PRIMARY KEY ({pk_str})" if pk_str else "") + "\n);") # can't add backslash inside f-string so split those arguments
+        db_schemas[db["db_id"]] = "\n\n".join(schema)
+    return db_schemas
+
 def attach_schema_json(ex: Dict[str, Any], split_root: Path) -> Dict[str, Any]:
     """Add list‑of‑dict 'schema' key to dataset example using schema JSON."""
     ex["schema"] = _schema_map(split_root)[ex["db_id"]]
@@ -78,6 +109,19 @@ def _fmt_schema(schema: List[Dict[str, Any]]) -> str:
 def build_single_prompt(ex: Dict[str, Any]) -> str:
     return PROMPT_TMPL_SINGLE.format(schema=_fmt_schema(ex["schema"]), question=ex["question"])
 
+def build_single_code_repr_prompt(ex: Dict[str, Any]) -> str:
+    return PROMPT_CODE_REPR_TEMPLATE_SINGLE.format(schema=_fmt_schema(ex["schema"]), question=ex["question"])
+
+'''
+def build_single_code_repr_prompt(ex: Dict[str, Any]):
+    schema_str = _fmt_schema(ex["schema"])  # formats CREATE TABLE...
+    return (
+        "/* Given the following database schema : */\n"
+        f"{schema_str}\n\n"
+        f"/* Answer the following : {ex['question']} */\n"
+        "SELECT"
+    )
+'''
 
 def build_schema_prompt(ex: Dict[str, Any]) -> str:
     return PROMPT_TMPL_SCHEMA.format(schema=_fmt_schema(ex["schema"]), question=ex["question"])

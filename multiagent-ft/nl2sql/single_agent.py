@@ -1,9 +1,10 @@
 """Finetune a *single* LoRA adapter to map (schema + question) → SQL."""
 from pathlib import Path
-from datasets import load_dataset
+from datasets import load_dataset, Dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer, DataCollatorForLanguageModeling, DataCollatorForSeq2Seq
 from peft import LoraConfig, get_peft_model, TaskType
 import torch, common
+import json
 
 BASE_MODEL = "defog/sqlcoder-7b-2"
 
@@ -13,7 +14,7 @@ BASE_MODEL = "defog/sqlcoder-7b-2"
 
 # Paths for Spider dataset
 TRAIN_ROOT = Path("../../spider")
-DATA_FILE = SPIDER_ROOT / "train_spider.json"
+DATA_FILE = TRAIN_ROOT / "train_spider.json"
 
 OUTPUT_DIR = "./out_single_lora"
 
@@ -28,7 +29,19 @@ tok.pad_token = tok.eos_token
 # Dataset ####################
 ##############################
 
-ds = load_dataset("json", data_files=str(DATA_FILE))["train"]
+# removing Arrow usage for processing nested json in Spider 
+with open(DATA_FILE, "r", encoding="utf-8") as f:
+    raw_data = json.load(f)
+
+for ex in raw_data:
+    ex["SQL"] = ex["query"]
+    del ex["query_toks"]
+    del ex["query_toks_no_value"]
+    del ex["question_toks"]
+    del ex["sql"]
+
+ds = Dataset.from_list(raw_data)
+# ds = load_dataset("json", data_files=str(DATA_FILE))["train"]
 # add schema from train_tables.json
 
 ds = ds.map(lambda ex: common.attach_schema_json(ex, TRAIN_ROOT))
