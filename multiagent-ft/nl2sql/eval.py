@@ -15,7 +15,8 @@ tokenizer.pad_token = tokenizer.eos_token
 model = AutoModelForCausalLM.from_pretrained(model_path).to("cuda")
 
 # 2. Load Test Data
-test_data = load_dataset("json", data_files="../../Bird-SQL/dev_20240627/dev.json")["train"]
+# test_data = load_dataset("json", data_files="../../Bird-SQL/dev_20240627/dev.json")["train"]
+test_data = load_dataset("json", data_files="../../spider/dev.json")["train"]
 
 # 3. Evaluation Metrics
 def evaluate_sql(pred_sql, gold_sql, db_schema):

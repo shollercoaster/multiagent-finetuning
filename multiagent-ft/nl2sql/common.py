@@ -36,10 +36,15 @@ PROMPT_TMPL_SQL = (
 # Schema loader from *_tables.json #####
 ########################################
 
+USING_SPIDER_DS = True # set to False when using Bird-SQL
+
 @functools.lru_cache()
 def _schema_map(split_root: Path):
-    """Return {db_id: [{table_name, column_names}]} for one split (train or dev)."""
-    table_file = next(split_root.glob("*_tables.json"))  # train_tables.json or dev_tables.json
+    if USING_SPIDER_DS:
+        table_file = split_root / "tables.json"
+    else:
+        table_file = next(split_root.glob("*_tables.json"))
+
     with open(table_file, "r", encoding="utf-8") as f:
         raw = json.load(f)
     mapping = {}
@@ -54,10 +59,12 @@ def _schema_map(split_root: Path):
         ]
     return mapping
 
-
 def attach_schema_json(ex: Dict[str, Any], split_root: Path) -> Dict[str, Any]:
-    """Add list‑of‑dict 'schema' key to dataset example using *_tables.json."""
+    """Add list‑of‑dict 'schema' key to dataset example using schema JSON."""
     ex["schema"] = _schema_map(split_root)[ex["db_id"]]
+    # For Spider: normalize SQL key name
+    if USING_SPIDER_DS and "query" in ex:
+        ex["SQL"] = ex["query"]
     return ex
 
 ########################################

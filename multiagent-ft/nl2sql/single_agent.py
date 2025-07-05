@@ -6,8 +6,15 @@ from peft import LoraConfig, get_peft_model, TaskType
 import torch, common
 
 BASE_MODEL = "defog/sqlcoder-7b-2"
-TRAIN_ROOT = Path("../../Bird-SQL/train")
-DATA_FILE = TRAIN_ROOT / "train.json"
+
+# Paths for BirdSQL dataset
+# TRAIN_ROOT = Path("../../Bird-SQL/train")
+# DATA_FILE = TRAIN_ROOT / "train.json" 
+
+# Paths for Spider dataset
+TRAIN_ROOT = Path("../../spider")
+DATA_FILE = SPIDER_ROOT / "train_spider.json"
+
 OUTPUT_DIR = "./out_single_lora"
 
 ##############################
