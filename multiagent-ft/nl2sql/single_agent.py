@@ -32,9 +32,9 @@ ds = ds.map(lambda ex: common.attach_schema_json(ex, TRAIN_ROOT))
 
 def tok_fn(ex):
     prompt = common.build_single_prompt(ex)
-    tok_out = tok(prompt + ex["SQL"], truncation=True, max_length=1024, padding="max_length")
-    prompt_len= len(tok(prompt, truncation=True, max_length=1024, add_special_tokens=False)["input_ids"])
-    labels = tok_out["input_ids"].copy()
+    tok_out = tok(prompt + ex["SQL"], truncation=True, max_length=512, padding="max_length")
+    prompt_len= len(tok(prompt, truncation=True, max_length=512, add_special_tokens=False)["input_ids"])
+    labels = tok_out["input_ids"].copy() # list of ints, not a Tensor
     labels[:prompt_len] = [-100] * prompt_len # -100 masks question tokens so model only learns sql answers
     tok_out["labels"] = labels
     return tok_out
@@ -50,27 +50,31 @@ lo_cfg = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_ty
                     target_modules=["q_proj", "v_proj"])
 model = get_peft_model(base, lo_cfg).to("cuda")
 
-# data_collator = DataCollatorForLanguageModeling(
-data_collator = DataCollatorForSeq2Seq(
+model.gradient_checkpointing_enable()
+model.enable_input_require_grads()
+
+data_collator = DataCollatorForLanguageModeling(
+# data_collator = DataCollatorForSeq2Seq(
     tokenizer=tok,
-    # mlm=False,
-    # return_tensors="pt",
-    model=model, # used for DataCollatorForSeq2Seq (used for encoder-decoder models)
-    label_pad_token_id=-100,
-    pad_to_multiple_of=8,
+    mlm=False,
+    return_tensors="pt",
+    # model=model, # used for DataCollatorForSeq2Seq (used for encoder-decoder models)
+    # label_pad_token_id=-100,
+    # pad_to_multiple_of=8,
 )
 
 args = TrainingArguments(
     output_dir=OUTPUT_DIR,
-    per_device_train_batch_size=2,
-    num_train_epochs=3,
+    per_device_train_batch_size=16,
+    num_train_epochs=1,
     learning_rate=1e-4,
     fp16=True,
-    save_steps=1000,
-    logging_steps=50,
+    save_steps=10000,
+    logging_steps=100,
     report_to="none",
     label_names=["labels"],
-    gradient_checkpointing=True,
+    gradient_checkpointing=False,
+    gradient_accumulation_steps=1,
 )
 
 torch.cuda.empty_cache()

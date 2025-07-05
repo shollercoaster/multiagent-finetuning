@@ -11,6 +11,7 @@ from sqlglot import parse_one, Dialects
 # 1. Load Model and Tokenizer
 model_path = "./results/checkpoint-500"  # Your trained model
 tokenizer = AutoTokenizer.from_pretrained(model_path)
+tokenizer.pad_token = tokenizer.eos_token
 model = AutoModelForCausalLM.from_pretrained(model_path).to("cuda")
 
 # 2. Load Test Data
@@ -46,7 +47,8 @@ def generate_sql(question, db_id):
         input_ids=inputs["input_ids"],
         attention_mask=inputs["attention_mask"],
         max_length=1024,
-        num_return_sequences=1
+        num_return_sequences=1,
+        pad_token_id=tokenizer.eos_token_id
     )
     
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
