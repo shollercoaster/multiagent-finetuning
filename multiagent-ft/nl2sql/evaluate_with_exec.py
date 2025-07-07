@@ -7,7 +7,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
 import common
 from sqlglot.errors import ParseError, TokenError
-import re
+import re, textwrap
 
 # ─── CLI ─────────────────────────────────────────────────────────────────────
 parser = argparse.ArgumentParser()
@@ -59,30 +59,36 @@ ds = ds.map(lambda e: common.attach_schema_json(e, DEV_ROOT))
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 @torch.no_grad()
+@torch.no_grad()
 def gen_sql(ex):
     prompt = common.build_single_code_repr_prompt(ex)
 
-    ids = tok(prompt, return_tensors="pt").to(model.device)
-    out = model.generate(**ids, max_new_tokens=512, eos_token_id=tok.eos_token_id)
+    # 1. Generate
+    toks = tok(prompt, return_tensors="pt").to(model.device)
+    out  = model.generate(
+        **toks,
+        max_new_tokens=256,
+        eos_token_id=tok.eos_token_id,
+    )
     dec = tok.decode(out[0], skip_special_tokens=True)
 
-    # 1️⃣  Remove the prompt robustly (use replace, not slicing)
-    if dec.startswith(prompt):
-        gen_body = dec[len(prompt):]
-    else:
-        gen_body = dec
+    # 2. Remove the prompt (robustly)
+    gen_body = dec[len(prompt):] if dec.startswith(prompt) else dec
 
-    # 2️⃣  Keep the last SELECT … (avoids echoed schema/question)
-    if "SELECT" in gen_body.upper():
-        gen_body = re.split(r"(?i)select", gen_body)[-1]      # take everything after last SELECT
-        gen_body = "SELECT " + gen_body
+    # 3. Keep the *first* SELECT …;
+    match = re.search(r"(?i)select\b.*?;", gen_body, re.S)
+    sql = match.group(0).strip() if match else ""
 
-    # 3️⃣  Stop at first ';' or newline
-    sql = re.split(r"[;\n]", gen_body.strip())[0].strip()
-    if not sql.endswith(";"):
-        sql += ";"
+    print(textwrap.dedent(f"""
+        ─ PROMPT ─
+        {prompt}
 
-    print(f"\nPROMPT =====\n{prompt}\n\nRAW DEC =====\n{dec}\n\nSQL =====\n{sql}\n")
+        ─ RAW ─
+        {dec}
+
+        ─ SQL ─
+        {sql}
+    """))
     return sql
 
 def valid_sql(sql: str) -> bool:
