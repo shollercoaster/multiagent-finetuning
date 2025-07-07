@@ -6,6 +6,8 @@ from datasets import Dataset, load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
 import common
+from sqlglot.errors import ParseError, TokenError
+import re
 
 # ─── CLI ─────────────────────────────────────────────────────────────────────
 parser = argparse.ArgumentParser()
@@ -59,17 +61,37 @@ ds = ds.map(lambda e: common.attach_schema_json(e, DEV_ROOT))
 @torch.no_grad()
 def gen_sql(ex):
     prompt = common.build_single_code_repr_prompt(ex)
+
     ids = tok(prompt, return_tensors="pt").to(model.device)
-    out = model.generate(**ids, max_new_tokens=512)
+    out = model.generate(**ids, max_new_tokens=512, eos_token_id=tok.eos_token_id)
     dec = tok.decode(out[0], skip_special_tokens=True)
-    sql = dec[len(prompt):].strip().split(";")[0].strip() + ";"
-    print(f"\nPROMPT =====\n{prompt}\n\nGEN =====\n{sql}\n")
+
+    # 1️⃣  Remove the prompt robustly (use replace, not slicing)
+    if dec.startswith(prompt):
+        gen_body = dec[len(prompt):]
+    else:
+        gen_body = dec
+
+    # 2️⃣  Keep the last SELECT … (avoids echoed schema/question)
+    if "SELECT" in gen_body.upper():
+        gen_body = re.split(r"(?i)select", gen_body)[-1]      # take everything after last SELECT
+        gen_body = "SELECT " + gen_body
+
+    # 3️⃣  Stop at first ';' or newline
+    sql = re.split(r"[;\n]", gen_body.strip())[0].strip()
+    if not sql.endswith(";"):
+        sql += ";"
+
+    print(f"\nPROMPT =====\n{prompt}\n\nRAW DEC =====\n{dec}\n\nSQL =====\n{sql}\n")
     return sql
 
-def valid_sql(sql):
+def valid_sql(sql: str) -> bool:
+    if not sql or sql == ";":
+        return False
     try:
-        sqlglot.parse_one(sql, dialect="sqlite"); return True
-    except sqlglot.errors.ParseError:
+        sqlglot.parse_one(sql, dialect="sqlite")
+        return True
+    except (ParseError, TokenError):
         return False
 
 def execute_sql(db_id, sql):
