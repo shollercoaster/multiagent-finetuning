@@ -66,7 +66,7 @@ train_ds = ds.map(tok_fn, remove_columns=ds.column_names)
 ##############################
 
 base = AutoModelForCausalLM.from_pretrained(BASE_MODEL, load_in_4bit=True, attn_implementation="flash_attention_2" )
-lo_cfg = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_type=TaskType.CAUSAL_LM,
+lo_cfg = LoraConfig(r=32, lora_alpha=64, lora_dropout=0.05, bias="none", task_type=TaskType.CAUSAL_LM,
                     target_modules=["q_proj", "v_proj"])
 model = get_peft_model(base, lo_cfg).to("cuda")
 
@@ -101,3 +101,4 @@ torch.cuda.empty_cache()
 Trainer(model=model, args=args, train_dataset=train_ds, data_collator=data_collator).train()
 model.save_pretrained(f"{OUTPUT_DIR}/final")
 tok.save_pretrained(f"{OUTPUT_DIR}/final")
+model.push_to_hub("schaturv/sqlcoder_spider_simple_prompt")
