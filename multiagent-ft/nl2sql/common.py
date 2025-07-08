@@ -7,6 +7,23 @@ from typing import Dict, List, Any
 # Prompt templates ###########
 ##############################
 
+PROMPT_PLAN_TEMPLATE = (
+    "### Instruction:\n"
+    "You are a query planner. Given the question and database schema, explain how you would approach solving it using a query plan.\n\n"
+    "### Schema:\n{schema}\n\n"
+    "### Question:\n{question}\n\n"
+    "### QueryPlan:\n"
+)
+
+PROMPT_SQL_TEMPLATE = (
+    "### Instruction:\n"
+    "You are an SQL agent. Given the question, schema, and query plan, generate the final SQLite query.\n\n"
+    "### Schema:\n{schema}\n\n"
+    "### Question:\n{question}\n\n"
+    "### QueryPlan:\n{query_plan}\n\n"
+    "### SQL:\n"
+)
+
 PROMPT_TMPL_SINGLE = (
     "### Instruction:\n"
     "You are an NL2SQL agent. Generate a valid SQLite query that answers the question.\n\n"
@@ -105,6 +122,11 @@ def attach_schema_json(ex: Dict[str, Any], split_root: Path) -> Dict[str, Any]:
 def _fmt_schema(schema: List[Dict[str, Any]]) -> str:
     return "\n".join(f"{t['table_name']}: {', '.join(t['column_names'])}" for t in schema)
 
+def build_query_plan_prompt(ex):
+    return PROMPT_PLAN_TEMPLATE.format(schema=_fmt_schema(ex["schema"]), question=ex["question"])
+
+def build_sql_from_plan_prompt(ex, query_plan):
+    return PROMPT_SQL_TEMPLATE.format(schema=_fmt_schema(ex["schema"]), question=ex["question"], query_plan=query_plan)
 
 def build_single_prompt(ex: Dict[str, Any]) -> str:
     return PROMPT_TMPL_SINGLE.format(schema=_fmt_schema(ex["schema"]), question=ex["question"])
