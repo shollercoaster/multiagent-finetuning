@@ -76,8 +76,10 @@ def gen_sql(ex):
     gen_body = dec[len(prompt):] if dec.startswith(prompt) else dec
 
     # 3. Keep the *first* SELECT …;
-    match = re.search(r"(?i)select\b.*?;", gen_body, re.S)
+    match = re.search(r"(?is)select\b.*?(?=\/\*|;|\Z)", gen_body)
     sql = match.group(0).strip() if match else ""
+    if not sql.endswith(";"):
+        sql += ";"
 
     print(textwrap.dedent(f"""
         ─ PROMPT ─
