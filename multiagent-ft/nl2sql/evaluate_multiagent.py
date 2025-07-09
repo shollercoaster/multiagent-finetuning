@@ -38,7 +38,7 @@ parser.add_argument("--schema_ckpt", default="schaturv/spider_schema_agent",
                     help="Path to trained schema‑agent adapter")
 parser.add_argument("--sql_ckpt", default="schaturv/spider_sql_agent",
                     help="Path to trained sql‑agent adapter")
-parser.add_argument("--base", default="defog/sqlcoder-7b-2")
+parser.add_argument("--base", default="deepseek-ai/deepseek-coder-6.7b-instruct")
 parser.add_argument("--limit", type=int, default=100)
 args = parser.parse_args()
 
@@ -83,7 +83,7 @@ def run_schema(ex):
     return body.strip().split("\n")[0].strip()
 
 @torch.no_grad()
-def run_sql(ex, needed):
+def run_sql(ex, needed, iter):
     p = common.build_sql_prompt(ex, needed)
     stopper = StoppingCriteriaList([StopOnSection(tok, "\n###")])
     ids = tok(p, return_tensors="pt").to(sql_model.device)
@@ -92,39 +92,31 @@ def run_sql(ex, needed):
     body = dec[len(p):] if dec.startswith(p) else dec
     m = re.search(r"(?is)select\b.*?(?=\/\*|;|\Z)", body)
     sql = (m.group(0).strip() if m else "").rstrip(";")
-    print(textwrap.dedent(f"""
-        ─ PROMPT ─
-        {p}
-
-        ─ RAW ─
-        {dec}
-
-        ─ SQL ─
-        {sql}
-    """))
-
+    print(f"\n{iter}\n\nPROMPT =====\n{p}\n\n\nGEN =====\n{sql}\n")
     return sql + ";"
 
 def valid_sql(sql):
     try:
         sqlglot.parse_one(sql, dialect="sqlite"); return True
-    except sqlglot.errors.ParseError: return False
+    except sqlglot.errors.ParseError or sqlglot.errors.TokenError: return False
 
 def execute_sql(db_id, sql):
     db_file = Path(args.db_root) / db_id / f"{db_id}.sqlite"
     try:
         with sqlite3.connect(db_file) as conn:
             cur = conn.cursor(); cur.execute(sql); return cur.fetchall()
-    except sqlite3.Error:
+    except sqlite3.Error or sqlglot.errors.ParseError or sqlglot.errors.TokenError:
         return None
 
 # ─── Evaluation loop ───────────────────────────────────────────────────────
 results = []
-for ex in ds:
+iter = 0
+for ex in ds.select(range(args.limit)):
     needed = run_schema(ex)
-    pred   = run_sql(ex, needed)
+    pred   = run_sql(ex, needed, iter)
     gold   = ex["SQL"].strip()
 
+    iter += 1
     exact = pred.strip(";").strip().lower() == gold.lower()
     valid = valid_sql(pred)
 
