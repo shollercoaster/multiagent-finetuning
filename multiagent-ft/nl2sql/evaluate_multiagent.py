@@ -39,7 +39,7 @@ parser.add_argument("--schema_ckpt", default="schaturv/spider_schema_agent",
 parser.add_argument("--sql_ckpt", default="schaturv/spider_sql_agent",
                     help="Path to trained sql‑agent adapter")
 parser.add_argument("--base", default="deepseek-ai/deepseek-coder-6.7b-instruct")
-parser.add_argument("--limit", type=int, default=100)
+parser.add_argument("--limit", type=int, default=500)
 args = parser.parse_args()
 
 # ─── Load base + adapters ──────────────────────────────────────────────────
@@ -85,13 +85,20 @@ def run_schema(ex):
 @torch.no_grad()
 def run_sql(ex, needed, iter):
     p = common.build_sql_prompt(ex, needed)
-    stopper = StoppingCriteriaList([StopOnSection(tok, "\n###")])
+    # stopper = StoppingCriteriaList([StopOnSection(tok, "\n###")])
     ids = tok(p, return_tensors="pt").to(sql_model.device)
-    dec = tok.decode(sql_model.generate(**ids, stopping_criteria=stopper, max_new_tokens=128)[0],
-                     skip_special_tokens=True)
+    dec = tok.decode(sql_model.generate(**ids, max_new_tokens=128)[0],
+                     skip_special_tokens=True) # stopping_criteria=stopper
     body = dec[len(p):] if dec.startswith(p) else dec
     m = re.search(r"(?is)select\b.*?(?=\/\*|;|\Z)", body)
     sql = (m.group(0).strip() if m else "").rstrip(";")
+    if sql.count('"') % 2 != 0:
+        sql = sql.rsplit('"', 1)[0]  # remove unclosed part
+    if sql.count("'") % 2 != 0:
+        sql = sql.rsplit("'", 1)[0]
+    if sql.count("`") % 2 != 0:
+        sql = sql.rsplit("`", 1)[0]
+
     print(f"\n{iter}\n\nPROMPT =====\n{p}\n\n\nGEN =====\n{sql}\n")
     return sql + ";"
 

@@ -6,7 +6,7 @@ from peft import LoraConfig, get_peft_model, TaskType
 import torch, common
 import json
 
-BASE_MODEL = "defog/sqlcoder-7b-2"
+BASE_MODEL = "deepseek-ai/deepseek-coder-6.7b-instruct"
 TRAIN_ROOT = Path("../../spider")
 DATA_FILE = TRAIN_ROOT / "train_spider.json"
 SCHEMA_OUT = "./out_schema_agent"
@@ -70,10 +70,10 @@ def schema_tok(ex):
 torch.cuda.empty_cache()
 schema_ds = ds.map(schema_tok, remove_columns=ds.column_names)
 Trainer(model=schema_model,
-        args=TrainingArguments(output_dir=SCHEMA_OUT, per_device_train_batch_size=8, num_train_epochs=1,
+        args=TrainingArguments(output_dir=SCHEMA_OUT, per_device_train_batch_size=8, num_train_epochs=2,
                                learning_rate=1e-4, fp16=True, save_steps=10000, logging_steps=100, report_to="none", gradient_checkpointing=False, gradient_accumulation_steps=1),
         train_dataset=schema_ds, data_collator=data_collator).train()
-schema_model.save_pretrained(f"{SCHEMA_OUT}/final")
+# schema_model.save_pretrained(f"{SCHEMA_OUT}/final")
 schema_model.push_to_hub("schaturv/spider_schema_agent")
 '''
 ##############################
@@ -100,9 +100,9 @@ def sql_tok(ex):
 torch.cuda.empty_cache()
 sql_ds = ds.map(sql_tok, remove_columns=ds.column_names)
 Trainer(model=sql_model,
-        args=TrainingArguments(output_dir=SQL_OUT, per_device_train_batch_size=4, gradient_accumulation_steps=1,
-                               num_train_epochs=1, learning_rate=1e-4, fp16=True, save_steps=10000, logging_steps=100, gradient_checkpointing=False,
+        args=TrainingArguments( per_device_train_batch_size=4, gradient_accumulation_steps=1,
+                               num_train_epochs=2, learning_rate=1e-4, fp16=True, save_steps=10000, logging_steps=100, gradient_checkpointing=False,
                                report_to="none"),
         train_dataset=sql_ds, data_collator=data_collator).train()
-sql_model.save_pretrained(f"{SQL_OUT}/final")
+# sql_model.save_pretrained(f"{SQL_OUT}/final")
 sql_model.push_to_hub("schaturv/spider_sql_agent")
