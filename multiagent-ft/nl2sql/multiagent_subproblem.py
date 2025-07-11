@@ -49,22 +49,27 @@ def normalize_query_structure(entry):
 
 # Load and categorize data
 logger.info("🔍 Loading and categorizing data...")
-with open(args.data, "r", encoding="utf-8") as f:
-    data = json.load(f)
-for ex in data:
-    del ex["query_toks"]
-    del ex["query_toks_no_value"]
-    del ex["question_toks"]
-    ex.update(categorize(ex))
-    del ex["sql"]
 
-data = [normalize_query_structure(ex) for ex in data]
-# Attach schema and convert to dataset
-logger.info("📦 Attaching schema...")
-# ds = DatasetDict({"train": Dataset.from_list(data)})
-ds = Dataset.from_list(data)
-ds = ds.map(lambda ex: attach_schema_json(ex, Path(args.schema).parent))
-ds = ds.map(lambda ex: {"text": build_sql_prompt_by_category(ex)})
+def data_loading(data_path):
+    with open(data_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    for ex in data:
+        del ex["query_toks"]
+        del ex["query_toks_no_value"]
+        del ex["question_toks"]
+        ex.update(categorize(ex))
+        del ex["sql"]
+
+    data = [normalize_query_structure(ex) for ex in data]
+    # Attach schema and convert to dataset
+    logger.info("📦 Attaching schema...")
+    # ds = DatasetDict({"train": Dataset.from_list(data)})
+    ds = Dataset.from_list(data)
+    ds = ds.map(lambda ex: attach_schema_json(ex, Path(args.schema).parent))
+    ds = ds.map(lambda ex: {"text": build_sql_prompt_by_category(ex)})
+    return ds
+
+ds = data_loading(args.data)
 
 # Split by category
 subtypes = ["normal", "groupby", "orderby", "complex"]
@@ -97,6 +102,7 @@ lora_cfg = LoraConfig(
     task_type="CAUSAL_LM"
 )
 print("Single sample: ", category_data["groupby"][0])
+
 # Train separate adapter per category
 for category in subtypes:
     logger.info(f"🚀 Training agent for category: {category}")
