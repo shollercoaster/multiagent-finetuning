@@ -1,0 +1,273 @@
+{
+  "summary": {
+    "total": 10,
+    "exact_match": 0,
+    "valid_sql": 10,
+    "execution_accuracy": 10,
+    "exact_match_rate": 0.0,
+    "valid_sql_rate": 1.0,
+    "execution_accuracy_rate": 1.0
+  },
+  "results": [
+    {
+      "question": "How many singers do we have?",
+      "gold_sql": "SELECT count(*) FROM singer",
+      "db_id": "concert_singer",
+      "agents": {
+        "schema": {
+          "prompt": "\nYou are a Schema Agent. Given a natural language question and table schemas, identify the relevant tables and columns.\n\nQuestion: How many singers do we have?\nSchemas:\nstadium:\n  Stadium_ID\n  Location\n  Name\n  Capacity\n  Highest\n  Lowest\n  Average\nsinger:\n  Singer_ID\n  Name\n  Country\n  Song_Name\n  Song_release_year\n  Age\n  Is_male\nconcert:\n  concert_ID\n  concert_Name\n  Theme\n  Stadium_ID\n  Year\nsinger_in_concert:\n  concert_ID\n  Singer_ID\n\nReturn a list of lines in the format:\nTable: col1, col2, ...\nOnly list relevant tables and columns needed to answer the question.\n",
+          "output": "```\nTable: singer, Singer_ID\n```"
+        },
+        "subproblem": {
+          "prompt": "\nYou are a Subproblem Agent. Given a SQL query, decompose it into subproblems or expressions.\n\nSQL: SELECT count(*) FROM singer\n\nIdentify key clauses (e.g., GROUP BY, ORDER BY, UNION, JOIN) and list subproblems in JSON form:\n{\"subproblems\": [{\"clause\": \"GROUP BY\", \"expression\": \"...\" }, ...]}\nOnly output valid JSON.\n",
+          "output": "```json\n{\n    \"subproblems\": []\n}\n```"
+        },
+        "plan": {
+          "prompt": "\nYou are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.\n\nQuestion: How many singers do we have?\nSchema Info:\n```\nTable: singer, Singer_ID\n```\nSubproblems:\n```json\n{\n    \"subproblems\": []\n}\n```\n\nProvide a concise and to-the-point plan, each step describing how to build parts of the SQL.\n",
+          "output": "To determine how many singers are in the database, we need to count the number of entries in the `singer` table. Here is a step-by-step SQL query plan:\n\n1. **Identify the Table**: We need to work with the `singer` table, which contains information about singers.\n\n2. **Select the Column**: Since we are counting the number of singers, we will use the `Singer_ID` column, which uniquely identifies each singer.\n\n3. **Count the Entries**: Use the `COUNT` function to count the number of unique `Singer_ID` entries in the `singer` table.\n\n4. **Construct the SQL Query**: Combine the above steps into a single SQL query.\n\nFinal SQL Query:\n```sql\nSELECT COUNT(Singer_ID) AS NumberOfSingers FROM singer;\n```\n\nThis query will return the total number of singers in the `singer` table."
+        },
+        "sql": {
+          "prompt": "\nYou are an SQL Generating Agent. Given the plan, write ONLY the final SQL query with no extra text or formatting.\n\nPlan:\nTo determine how many singers are in the database, we need to count the number of entries in the `singer` table. Here is a step-by-step SQL query plan:\n\n1. **Identify the Table**: We need to work with the `singer` table, which contains information about singers.\n\n2. **Select the Column**: Since we are counting the number of singers, we will use the `Singer_ID` column, which uniquely identifies each singer.\n\n3. **Count the Entries**: Use the `COUNT` function to count the number of unique `Singer_ID` entries in the `singer` table.\n\n4. **Construct the SQL Query**: Combine the above steps into a single SQL query.\n\nFinal SQL Query:\n```sql\nSELECT COUNT(Singer_ID) AS NumberOfSingers FROM singer;\n```\n\nThis query will return the total number of singers in the `singer` table.\n\nReturn exactly one valid SQL statement.\n",
+          "output": "select count(singer_id) as numberofsingers from singer;"
+        }
+      },
+      "exact_match": false,
+      "valid_sql": true,
+      "exec_match": true
+    },
+    {
+      "question": "What is the total number of singers?",
+      "gold_sql": "SELECT count(*) FROM singer",
+      "db_id": "concert_singer",
+      "agents": {
+        "schema": {
+          "prompt": "\nYou are a Schema Agent. Given a natural language question and table schemas, identify the relevant tables and columns.\n\nQuestion: What is the total number of singers?\nSchemas:\nstadium:\n  Stadium_ID\n  Location\n  Name\n  Capacity\n  Highest\n  Lowest\n  Average\nsinger:\n  Singer_ID\n  Name\n  Country\n  Song_Name\n  Song_release_year\n  Age\n  Is_male\nconcert:\n  concert_ID\n  concert_Name\n  Theme\n  Stadium_ID\n  Year\nsinger_in_concert:\n  concert_ID\n  Singer_ID\n\nReturn a list of lines in the format:\nTable: col1, col2, ...\nOnly list relevant tables and columns needed to answer the question.\n",
+          "output": "```\nTable: singer, Singer_ID\n```"
+        },
+        "subproblem": {
+          "prompt": "\nYou are a Subproblem Agent. Given a SQL query, decompose it into subproblems or expressions.\n\nSQL: SELECT count(*) FROM singer\n\nIdentify key clauses (e.g., GROUP BY, ORDER BY, UNION, JOIN) and list subproblems in JSON form:\n{\"subproblems\": [{\"clause\": \"GROUP BY\", \"expression\": \"...\" }, ...]}\nOnly output valid JSON.\n",
+          "output": "```json\n{\n    \"subproblems\": []\n}\n```"
+        },
+        "plan": {
+          "prompt": "\nYou are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.\n\nQuestion: What is the total number of singers?\nSchema Info:\n```\nTable: singer, Singer_ID\n```\nSubproblems:\n```json\n{\n    \"subproblems\": []\n}\n```\n\nProvide a concise and to-the-point plan, each step describing how to build parts of the SQL.\n",
+          "output": "To determine the total number of singers, we need to count the number of entries in the `singer` table. Here is a step-by-step SQL query plan:\n\n1. **Identify the Table**: \n   - We are working with the `singer` table.\n\n2. **Determine the Column for Counting**:\n   - Use the `Singer_ID` column to count the number of singers, as it uniquely identifies each singer.\n\n3. **Construct the SQL Query**:\n   - Use the `COUNT` function to count the number of `Singer_ID` entries in the `singer` table.\n\n4. **Write the SQL Query**:\n   - The SQL query will be: \n     ```sql\n     SELECT COUNT(Singer_ID) AS total_singers FROM singer;\n     ```\n\nThis query will return the total number of singers in the `singer` table."
+        },
+        "sql": {
+          "prompt": "\nYou are an SQL Generating Agent. Given the plan, write ONLY the final SQL query with no extra text or formatting.\n\nPlan:\nTo determine the total number of singers, we need to count the number of entries in the `singer` table. Here is a step-by-step SQL query plan:\n\n1. **Identify the Table**: \n   - We are working with the `singer` table.\n\n2. **Determine the Column for Counting**:\n   - Use the `Singer_ID` column to count the number of singers, as it uniquely identifies each singer.\n\n3. **Construct the SQL Query**:\n   - Use the `COUNT` function to count the number of `Singer_ID` entries in the `singer` table.\n\n4. **Write the SQL Query**:\n   - The SQL query will be: \n     ```sql\n     SELECT COUNT(Singer_ID) AS total_singers FROM singer;\n     ```\n\nThis query will return the total number of singers in the `singer` table.\n\nReturn exactly one valid SQL statement.\n",
+          "output": "select count(singer_id) as total_singers from singer;"
+        }
+      },
+      "exact_match": false,
+      "valid_sql": true,
+      "exec_match": true
+    },
+    {
+      "question": "Show name, country, age for all singers ordered by age from the oldest to the youngest.",
+      "gold_sql": "SELECT name ,  country ,  age FROM singer ORDER BY age DESC",
+      "db_id": "concert_singer",
+      "agents": {
+        "schema": {
+          "prompt": "\nYou are a Schema Agent. Given a natural language question and table schemas, identify the relevant tables and columns.\n\nQuestion: Show name, country, age for all singers ordered by age from the oldest to the youngest.\nSchemas:\nstadium:\n  Stadium_ID\n  Location\n  Name\n  Capacity\n  Highest\n  Lowest\n  Average\nsinger:\n  Singer_ID\n  Name\n  Country\n  Song_Name\n  Song_release_year\n  Age\n  Is_male\nconcert:\n  concert_ID\n  concert_Name\n  Theme\n  Stadium_ID\n  Year\nsinger_in_concert:\n  concert_ID\n  Singer_ID\n\nReturn a list of lines in the format:\nTable: col1, col2, ...\nOnly list relevant tables and columns needed to answer the question.\n",
+          "output": "```\nTable: singer\nColumns: Name, Country, Age\n```"
+        },
+        "subproblem": {
+          "prompt": "\nYou are a Subproblem Agent. Given a SQL query, decompose it into subproblems or expressions.\n\nSQL: SELECT name ,  country ,  age FROM singer ORDER BY age DESC\n\nIdentify key clauses (e.g., GROUP BY, ORDER BY, UNION, JOIN) and list subproblems in JSON form:\n{\"subproblems\": [{\"clause\": \"GROUP BY\", \"expression\": \"...\" }, ...]}\nOnly output valid JSON.\n",
+          "output": "```json\n{\n  \"subproblems\": [\n    {\n      \"clause\": \"ORDER BY\",\n      \"expression\": \"age DESC\"\n    }\n  ]\n}\n```"
+        },
+        "plan": {
+          "prompt": "\nYou are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.\n\nQuestion: Show name, country, age for all singers ordered by age from the oldest to the youngest.\nSchema Info:\n```\nTable: singer\nColumns: Name, Country, Age\n```\nSubproblems:\n```json\n{\n  \"subproblems\": [\n    {\n      \"clause\": \"ORDER BY\",\n      \"expression\": \"age DESC\"\n    }\n  ]\n}\n```\n\nProvide a concise and to-the-point plan, each step describing how to build parts of the SQL.\n",
+          "output": "To generate the SQL query for the given question, follow these steps:\n\n1. **SELECT Clause**: Identify the columns that need to be retrieved from the table. According to the question, we need the \"Name\", \"Country\", and \"Age\" of the singers.\n\n   ```sql\n   SELECT Name, Country, Age\n   ```\n\n2. **FROM Clause**: Specify the table from which to retrieve the data. The table in question is \"singer\".\n\n   ```sql\n   FROM singer\n   ```\n\n3. **ORDER BY Clause**: Determine the order in which the results should be displayed. The subproblem specifies that the results should be ordered by \"Age\" in descending order, meaning from the oldest to the youngest.\n\n   ```sql\n   ORDER BY Age DESC\n   ```\n\n4. **Combine All Parts**: Integrate all the parts into a complete SQL query.\n\n   ```sql\n   SELECT Name, Country, Age\n   FROM singer\n   ORDER BY Age DESC;\n   ```\n\nThis plan outlines the steps to construct the SQL query to retrieve the desired information about singers, ordered by age from oldest to youngest."
+        },
+        "sql": {
+          "prompt": "\nYou are an SQL Generating Agent. Given the plan, write ONLY the final SQL query with no extra text or formatting.\n\nPlan:\nTo generate the SQL query for the given question, follow these steps:\n\n1. **SELECT Clause**: Identify the columns that need to be retrieved from the table. According to the question, we need the \"Name\", \"Country\", and \"Age\" of the singers.\n\n   ```sql\n   SELECT Name, Country, Age\n   ```\n\n2. **FROM Clause**: Specify the table from which to retrieve the data. The table in question is \"singer\".\n\n   ```sql\n   FROM singer\n   ```\n\n3. **ORDER BY Clause**: Determine the order in which the results should be displayed. The subproblem specifies that the results should be ordered by \"Age\" in descending order, meaning from the oldest to the youngest.\n\n   ```sql\n   ORDER BY Age DESC\n   ```\n\n4. **Combine All Parts**: Integrate all the parts into a complete SQL query.\n\n   ```sql\n   SELECT Name, Country, Age\n   FROM singer\n   ORDER BY Age DESC;\n   ```\n\nThis plan outlines the steps to construct the SQL query to retrieve the desired information about singers, ordered by age from oldest to youngest.\n\nReturn exactly one valid SQL statement.\n",
+          "output": "select name, country, age from singer order by age desc;"
+        }
+      },
+      "exact_match": false,
+      "valid_sql": true,
+      "exec_match": true
+    },
+    {
+      "question": "What are the names, countries, and ages for every singer in descending order of age?",
+      "gold_sql": "SELECT name ,  country ,  age FROM singer ORDER BY age DESC",
+      "db_id": "concert_singer",
+      "agents": {
+        "schema": {
+          "prompt": "\nYou are a Schema Agent. Given a natural language question and table schemas, identify the relevant tables and columns.\n\nQuestion: What are the names, countries, and ages for every singer in descending order of age?\nSchemas:\nstadium:\n  Stadium_ID\n  Location\n  Name\n  Capacity\n  Highest\n  Lowest\n  Average\nsinger:\n  Singer_ID\n  Name\n  Country\n  Song_Name\n  Song_release_year\n  Age\n  Is_male\nconcert:\n  concert_ID\n  concert_Name\n  Theme\n  Stadium_ID\n  Year\nsinger_in_concert:\n  concert_ID\n  Singer_ID\n\nReturn a list of lines in the format:\nTable: col1, col2, ...\nOnly list relevant tables and columns needed to answer the question.\n",
+          "output": "```\nTable: singer\nColumns: Name, Country, Age\n```"
+        },
+        "subproblem": {
+          "prompt": "\nYou are a Subproblem Agent. Given a SQL query, decompose it into subproblems or expressions.\n\nSQL: SELECT name ,  country ,  age FROM singer ORDER BY age DESC\n\nIdentify key clauses (e.g., GROUP BY, ORDER BY, UNION, JOIN) and list subproblems in JSON form:\n{\"subproblems\": [{\"clause\": \"GROUP BY\", \"expression\": \"...\" }, ...]}\nOnly output valid JSON.\n",
+          "output": "```json\n{\n  \"subproblems\": [\n    {\n      \"clause\": \"ORDER BY\",\n      \"expression\": \"age DESC\"\n    }\n  ]\n}\n```"
+        },
+        "plan": {
+          "prompt": "\nYou are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.\n\nQuestion: What are the names, countries, and ages for every singer in descending order of age?\nSchema Info:\n```\nTable: singer\nColumns: Name, Country, Age\n```\nSubproblems:\n```json\n{\n  \"subproblems\": [\n    {\n      \"clause\": \"ORDER BY\",\n      \"expression\": \"age DESC\"\n    }\n  ]\n}\n```\n\nProvide a concise and to-the-point plan, each step describing how to build parts of the SQL.\n",
+          "output": "Step 1: **SELECT Clause**  \nIdentify the columns needed to answer the question. We need the names, countries, and ages of the singers.  \n- SQL: `SELECT Name, Country, Age`\n\nStep 2: **FROM Clause**  \nSpecify the table from which to retrieve the data. The data is stored in the `singer` table.  \n- SQL: `FROM singer`\n\nStep 3: **ORDER BY Clause**  \nDetermine the order in which to present the results. According to the subproblem, we need to order the results by age in descending order.  \n- SQL: `ORDER BY Age DESC`\n\nStep 4: **Combine Clauses**  \nCombine all the parts to form the complete SQL query.  \n- SQL: `SELECT Name, Country, Age FROM singer ORDER BY Age DESC`"
+        },
+        "sql": {
+          "prompt": "\nYou are an SQL Generating Agent. Given the plan, write ONLY the final SQL query with no extra text or formatting.\n\nPlan:\nStep 1: **SELECT Clause**  \nIdentify the columns needed to answer the question. We need the names, countries, and ages of the singers.  \n- SQL: `SELECT Name, Country, Age`\n\nStep 2: **FROM Clause**  \nSpecify the table from which to retrieve the data. The data is stored in the `singer` table.  \n- SQL: `FROM singer`\n\nStep 3: **ORDER BY Clause**  \nDetermine the order in which to present the results. According to the subproblem, we need to order the results by age in descending order.  \n- SQL: `ORDER BY Age DESC`\n\nStep 4: **Combine Clauses**  \nCombine all the parts to form the complete SQL query.  \n- SQL: `SELECT Name, Country, Age FROM singer ORDER BY Age DESC`\n\nReturn exactly one valid SQL statement.\n",
+          "output": "select name, country, age from singer order by age desc"
+        }
+      },
+      "exact_match": false,
+      "valid_sql": true,
+      "exec_match": true
+    },
+    {
+      "question": "What is the average, minimum, and maximum age of all singers from France?",
+      "gold_sql": "SELECT avg(age) ,  min(age) ,  max(age) FROM singer WHERE country  =  'France'",
+      "db_id": "concert_singer",
+      "agents": {
+        "schema": {
+          "prompt": "\nYou are a Schema Agent. Given a natural language question and table schemas, identify the relevant tables and columns.\n\nQuestion: What is the average, minimum, and maximum age of all singers from France?\nSchemas:\nstadium:\n  Stadium_ID\n  Location\n  Name\n  Capacity\n  Highest\n  Lowest\n  Average\nsinger:\n  Singer_ID\n  Name\n  Country\n  Song_Name\n  Song_release_year\n  Age\n  Is_male\nconcert:\n  concert_ID\n  concert_Name\n  Theme\n  Stadium_ID\n  Year\nsinger_in_concert:\n  concert_ID\n  Singer_ID\n\nReturn a list of lines in the format:\nTable: col1, col2, ...\nOnly list relevant tables and columns needed to answer the question.\n",
+          "output": "```\nTable: singer\nColumns: Age, Country\n```"
+        },
+        "subproblem": {
+          "prompt": "\nYou are a Subproblem Agent. Given a SQL query, decompose it into subproblems or expressions.\n\nSQL: SELECT avg(age) ,  min(age) ,  max(age) FROM singer WHERE country  =  'France'\n\nIdentify key clauses (e.g., GROUP BY, ORDER BY, UNION, JOIN) and list subproblems in JSON form:\n{\"subproblems\": [{\"clause\": \"GROUP BY\", \"expression\": \"...\" }, ...]}\nOnly output valid JSON.\n",
+          "output": "```json\n{\n    \"subproblems\": [\n        {\n            \"clause\": \"SELECT\",\n            \"expression\": \"avg(age), min(age), max(age)\"\n        },\n        {\n            \"clause\": \"FROM\",\n            \"expression\": \"singer\"\n        },\n        {\n            \"clause\": \"WHERE\",\n            \"expression\": \"country = 'France'\"\n        }\n    ]\n}\n```"
+        },
+        "plan": {
+          "prompt": "\nYou are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.\n\nQuestion: What is the average, minimum, and maximum age of all singers from France?\nSchema Info:\n```\nTable: singer\nColumns: Age, Country\n```\nSubproblems:\n```json\n{\n    \"subproblems\": [\n        {\n            \"clause\": \"SELECT\",\n            \"expression\": \"avg(age), min(age), max(age)\"\n        },\n        {\n            \"clause\": \"FROM\",\n            \"expression\": \"singer\"\n        },\n        {\n            \"clause\": \"WHERE\",\n            \"expression\": \"country = 'France'\"\n        }\n    ]\n}\n```\n\nProvide a concise and to-the-point plan, each step describing how to build parts of the SQL.\n",
+          "output": "1. **FROM Clause**: Start by identifying the table from which the data will be queried. In this case, the table is `singer`.\n\n2. **WHERE Clause**: Filter the data to include only the rows where the `Country` column is equal to 'France'. This will ensure that only singers from France are considered in the calculations.\n\n3. **SELECT Clause**: Calculate the average, minimum, and maximum age of the filtered singers. Use the aggregate functions `AVG(age)`, `MIN(age)`, and `MAX(age)` to perform these calculations on the `Age` column.\n\n4. **Combine Clauses**: Assemble the SQL query by combining the above steps:\n   ```sql\n   SELECT AVG(age), MIN(age), MAX(age)\n   FROM singer\n   WHERE country = 'France';\n   ```\n\nThis plan outlines how to construct the SQL query to find the average, minimum, and maximum age of singers from France by filtering the relevant data and applying aggregate functions."
+        },
+        "sql": {
+          "prompt": "\nYou are an SQL Generating Agent. Given the plan, write ONLY the final SQL query with no extra text or formatting.\n\nPlan:\n1. **FROM Clause**: Start by identifying the table from which the data will be queried. In this case, the table is `singer`.\n\n2. **WHERE Clause**: Filter the data to include only the rows where the `Country` column is equal to 'France'. This will ensure that only singers from France are considered in the calculations.\n\n3. **SELECT Clause**: Calculate the average, minimum, and maximum age of the filtered singers. Use the aggregate functions `AVG(age)`, `MIN(age)`, and `MAX(age)` to perform these calculations on the `Age` column.\n\n4. **Combine Clauses**: Assemble the SQL query by combining the above steps:\n   ```sql\n   SELECT AVG(age), MIN(age), MAX(age)\n   FROM singer\n   WHERE country = 'France';\n   ```\n\nThis plan outlines how to construct the SQL query to find the average, minimum, and maximum age of singers from France by filtering the relevant data and applying aggregate functions.\n\nReturn exactly one valid SQL statement.\n",
+          "output": "select avg(age), min(age), max(age) from singer where country = 'france';"
+        }
+      },
+      "exact_match": false,
+      "valid_sql": true,
+      "exec_match": true
+    },
+    {
+      "question": "What is the average, minimum, and maximum age for all French singers?",
+      "gold_sql": "SELECT avg(age) ,  min(age) ,  max(age) FROM singer WHERE country  =  'France'",
+      "db_id": "concert_singer",
+      "agents": {
+        "schema": {
+          "prompt": "\nYou are a Schema Agent. Given a natural language question and table schemas, identify the relevant tables and columns.\n\nQuestion: What is the average, minimum, and maximum age for all French singers?\nSchemas:\nstadium:\n  Stadium_ID\n  Location\n  Name\n  Capacity\n  Highest\n  Lowest\n  Average\nsinger:\n  Singer_ID\n  Name\n  Country\n  Song_Name\n  Song_release_year\n  Age\n  Is_male\nconcert:\n  concert_ID\n  concert_Name\n  Theme\n  Stadium_ID\n  Year\nsinger_in_concert:\n  concert_ID\n  Singer_ID\n\nReturn a list of lines in the format:\nTable: col1, col2, ...\nOnly list relevant tables and columns needed to answer the question.\n",
+          "output": "```\nTable: singer\nColumns: Country, Age\n```"
+        },
+        "subproblem": {
+          "prompt": "\nYou are a Subproblem Agent. Given a SQL query, decompose it into subproblems or expressions.\n\nSQL: SELECT avg(age) ,  min(age) ,  max(age) FROM singer WHERE country  =  'France'\n\nIdentify key clauses (e.g., GROUP BY, ORDER BY, UNION, JOIN) and list subproblems in JSON form:\n{\"subproblems\": [{\"clause\": \"GROUP BY\", \"expression\": \"...\" }, ...]}\nOnly output valid JSON.\n",
+          "output": "```json\n{\n    \"subproblems\": [\n        {\n            \"clause\": \"SELECT\",\n            \"expression\": \"avg(age), min(age), max(age)\"\n        },\n        {\n            \"clause\": \"FROM\",\n            \"expression\": \"singer\"\n        },\n        {\n            \"clause\": \"WHERE\",\n            \"expression\": \"country = 'France'\"\n        }\n    ]\n}\n```"
+        },
+        "plan": {
+          "prompt": "\nYou are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.\n\nQuestion: What is the average, minimum, and maximum age for all French singers?\nSchema Info:\n```\nTable: singer\nColumns: Country, Age\n```\nSubproblems:\n```json\n{\n    \"subproblems\": [\n        {\n            \"clause\": \"SELECT\",\n            \"expression\": \"avg(age), min(age), max(age)\"\n        },\n        {\n            \"clause\": \"FROM\",\n            \"expression\": \"singer\"\n        },\n        {\n            \"clause\": \"WHERE\",\n            \"expression\": \"country = 'France'\"\n        }\n    ]\n}\n```\n\nProvide a concise and to-the-point plan, each step describing how to build parts of the SQL.\n",
+          "output": "1. **FROM Clause**: Start by identifying the table from which the data will be retrieved. In this case, the table is `singer`.\n\n2. **WHERE Clause**: Apply a filter to select only the rows where the `Country` column is equal to 'France'. This will ensure that only French singers are considered in the calculations.\n\n3. **SELECT Clause**: Specify the aggregate functions to calculate the average, minimum, and maximum age of the filtered data. Use `avg(Age)`, `min(Age)`, and `max(Age)` to perform these calculations on the `Age` column.\n\nBy following these steps, the SQL query will be constructed to retrieve the desired statistics for French singers."
+        },
+        "sql": {
+          "prompt": "\nYou are an SQL Generating Agent. Given the plan, write ONLY the final SQL query with no extra text or formatting.\n\nPlan:\n1. **FROM Clause**: Start by identifying the table from which the data will be retrieved. In this case, the table is `singer`.\n\n2. **WHERE Clause**: Apply a filter to select only the rows where the `Country` column is equal to 'France'. This will ensure that only French singers are considered in the calculations.\n\n3. **SELECT Clause**: Specify the aggregate functions to calculate the average, minimum, and maximum age of the filtered data. Use `avg(Age)`, `min(Age)`, and `max(Age)` to perform these calculations on the `Age` column.\n\nBy following these steps, the SQL query will be constructed to retrieve the desired statistics for French singers.\n\nReturn exactly one valid SQL statement.\n",
+          "output": "select avg(age), min(age), max(age) from singer where country = 'france';"
+        }
+      },
+      "exact_match": false,
+      "valid_sql": true,
+      "exec_match": true
+    },
+    {
+      "question": "Show the name and the release year of the song by the youngest singer.",
+      "gold_sql": "SELECT song_name ,  song_release_year FROM singer ORDER BY age LIMIT 1",
+      "db_id": "concert_singer",
+      "agents": {
+        "schema": {
+          "prompt": "\nYou are a Schema Agent. Given a natural language question and table schemas, identify the relevant tables and columns.\n\nQuestion: Show the name and the release year of the song by the youngest singer.\nSchemas:\nstadium:\n  Stadium_ID\n  Location\n  Name\n  Capacity\n  Highest\n  Lowest\n  Average\nsinger:\n  Singer_ID\n  Name\n  Country\n  Song_Name\n  Song_release_year\n  Age\n  Is_male\nconcert:\n  concert_ID\n  concert_Name\n  Theme\n  Stadium_ID\n  Year\nsinger_in_concert:\n  concert_ID\n  Singer_ID\n\nReturn a list of lines in the format:\nTable: col1, col2, ...\nOnly list relevant tables and columns needed to answer the question.\n",
+          "output": "```\nTable: singer\nColumns: Name, Song_Name, Song_release_year, Age\n```"
+        },
+        "subproblem": {
+          "prompt": "\nYou are a Subproblem Agent. Given a SQL query, decompose it into subproblems or expressions.\n\nSQL: SELECT song_name ,  song_release_year FROM singer ORDER BY age LIMIT 1\n\nIdentify key clauses (e.g., GROUP BY, ORDER BY, UNION, JOIN) and list subproblems in JSON form:\n{\"subproblems\": [{\"clause\": \"GROUP BY\", \"expression\": \"...\" }, ...]}\nOnly output valid JSON.\n",
+          "output": "```json\n{\n    \"subproblems\": [\n        {\n            \"clause\": \"SELECT\",\n            \"expression\": \"song_name, song_release_year\"\n        },\n        {\n            \"clause\": \"FROM\",\n            \"expression\": \"singer\"\n        },\n        {\n            \"clause\": \"ORDER BY\",\n            \"expression\": \"age\"\n        },\n        {\n            \"clause\": \"LIMIT\",\n            \"expression\": \"1\"\n        }\n    ]\n}\n```"
+        },
+        "plan": {
+          "prompt": "\nYou are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.\n\nQuestion: Show the name and the release year of the song by the youngest singer.\nSchema Info:\n```\nTable: singer\nColumns: Name, Song_Name, Song_release_year, Age\n```\nSubproblems:\n```json\n{\n    \"subproblems\": [\n        {\n            \"clause\": \"SELECT\",\n            \"expression\": \"song_name, song_release_year\"\n        },\n        {\n            \"clause\": \"FROM\",\n            \"expression\": \"singer\"\n        },\n        {\n            \"clause\": \"ORDER BY\",\n            \"expression\": \"age\"\n        },\n        {\n            \"clause\": \"LIMIT\",\n            \"expression\": \"1\"\n        }\n    ]\n}\n```\n\nProvide a concise and to-the-point plan, each step describing how to build parts of the SQL.\n",
+          "output": "1. **FROM Clause**: Start by specifying the table from which to retrieve the data. In this case, use the `singer` table.\n\n2. **SELECT Clause**: Identify the columns needed for the final output. Here, you need the `song_name` and `song_release_year` of the song by the youngest singer.\n\n3. **ORDER BY Clause**: To find the youngest singer, order the results by the `age` column in ascending order. This will ensure that the youngest singer appears at the top of the result set.\n\n4. **LIMIT Clause**: Use the `LIMIT` clause to restrict the result to only the first row, which corresponds to the youngest singer due to the ordering applied in the previous step.\n\nBy following these steps, you construct the SQL query to retrieve the desired information about the song by the youngest singer."
+        },
+        "sql": {
+          "prompt": "\nYou are an SQL Generating Agent. Given the plan, write ONLY the final SQL query with no extra text or formatting.\n\nPlan:\n1. **FROM Clause**: Start by specifying the table from which to retrieve the data. In this case, use the `singer` table.\n\n2. **SELECT Clause**: Identify the columns needed for the final output. Here, you need the `song_name` and `song_release_year` of the song by the youngest singer.\n\n3. **ORDER BY Clause**: To find the youngest singer, order the results by the `age` column in ascending order. This will ensure that the youngest singer appears at the top of the result set.\n\n4. **LIMIT Clause**: Use the `LIMIT` clause to restrict the result to only the first row, which corresponds to the youngest singer due to the ordering applied in the previous step.\n\nBy following these steps, you construct the SQL query to retrieve the desired information about the song by the youngest singer.\n\nReturn exactly one valid SQL statement.\n",
+          "output": "select song_name, song_release_year from singer order by age asc limit 1;"
+        }
+      },
+      "exact_match": false,
+      "valid_sql": true,
+      "exec_match": true
+    },
+    {
+      "question": "What are the names and release years for all the songs of the youngest singer?",
+      "gold_sql": "SELECT song_name ,  song_release_year FROM singer ORDER BY age LIMIT 1",
+      "db_id": "concert_singer",
+      "agents": {
+        "schema": {
+          "prompt": "\nYou are a Schema Agent. Given a natural language question and table schemas, identify the relevant tables and columns.\n\nQuestion: What are the names and release years for all the songs of the youngest singer?\nSchemas:\nstadium:\n  Stadium_ID\n  Location\n  Name\n  Capacity\n  Highest\n  Lowest\n  Average\nsinger:\n  Singer_ID\n  Name\n  Country\n  Song_Name\n  Song_release_year\n  Age\n  Is_male\nconcert:\n  concert_ID\n  concert_Name\n  Theme\n  Stadium_ID\n  Year\nsinger_in_concert:\n  concert_ID\n  Singer_ID\n\nReturn a list of lines in the format:\nTable: col1, col2, ...\nOnly list relevant tables and columns needed to answer the question.\n",
+          "output": "```\nTable: singer\nColumns: Name, Song_Name, Song_release_year, Age\n```"
+        },
+        "subproblem": {
+          "prompt": "\nYou are a Subproblem Agent. Given a SQL query, decompose it into subproblems or expressions.\n\nSQL: SELECT song_name ,  song_release_year FROM singer ORDER BY age LIMIT 1\n\nIdentify key clauses (e.g., GROUP BY, ORDER BY, UNION, JOIN) and list subproblems in JSON form:\n{\"subproblems\": [{\"clause\": \"GROUP BY\", \"expression\": \"...\" }, ...]}\nOnly output valid JSON.\n",
+          "output": "```json\n{\n    \"subproblems\": [\n        {\n            \"clause\": \"SELECT\",\n            \"expression\": \"song_name, song_release_year\"\n        },\n        {\n            \"clause\": \"FROM\",\n            \"expression\": \"singer\"\n        },\n        {\n            \"clause\": \"ORDER BY\",\n            \"expression\": \"age\"\n        },\n        {\n            \"clause\": \"LIMIT\",\n            \"expression\": \"1\"\n        }\n    ]\n}\n```"
+        },
+        "plan": {
+          "prompt": "\nYou are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.\n\nQuestion: What are the names and release years for all the songs of the youngest singer?\nSchema Info:\n```\nTable: singer\nColumns: Name, Song_Name, Song_release_year, Age\n```\nSubproblems:\n```json\n{\n    \"subproblems\": [\n        {\n            \"clause\": \"SELECT\",\n            \"expression\": \"song_name, song_release_year\"\n        },\n        {\n            \"clause\": \"FROM\",\n            \"expression\": \"singer\"\n        },\n        {\n            \"clause\": \"ORDER BY\",\n            \"expression\": \"age\"\n        },\n        {\n            \"clause\": \"LIMIT\",\n            \"expression\": \"1\"\n        }\n    ]\n}\n```\n\nProvide a concise and to-the-point plan, each step describing how to build parts of the SQL.\n",
+          "output": "1. **Identify the Youngest Singer**: \n   - Use the `ORDER BY` clause to sort the `singer` table by the `age` column in ascending order. This will bring the youngest singer to the top of the result set.\n   - Use the `LIMIT` clause to restrict the result to only the first row, which corresponds to the youngest singer.\n\n2. **Select Required Columns**:\n   - Use the `SELECT` clause to specify the columns `song_name` and `song_release_year` that need to be retrieved for the youngest singer.\n\n3. **Combine Steps**:\n   - Combine the above steps into a single query. First, sort the table by age and limit the result to the youngest singer. Then, select the `song_name` and `song_release_year` for that singer.\n\n4. **SQL Query Construction**:\n   - Construct the SQL query as follows:\n     ```sql\n     SELECT song_name, song_release_year\n     FROM singer\n     ORDER BY age\n     LIMIT 1;\n     ```\n\nThis plan ensures that you retrieve the song names and release years for all songs by the youngest singer in the database."
+        },
+        "sql": {
+          "prompt": "\nYou are an SQL Generating Agent. Given the plan, write ONLY the final SQL query with no extra text or formatting.\n\nPlan:\n1. **Identify the Youngest Singer**: \n   - Use the `ORDER BY` clause to sort the `singer` table by the `age` column in ascending order. This will bring the youngest singer to the top of the result set.\n   - Use the `LIMIT` clause to restrict the result to only the first row, which corresponds to the youngest singer.\n\n2. **Select Required Columns**:\n   - Use the `SELECT` clause to specify the columns `song_name` and `song_release_year` that need to be retrieved for the youngest singer.\n\n3. **Combine Steps**:\n   - Combine the above steps into a single query. First, sort the table by age and limit the result to the youngest singer. Then, select the `song_name` and `song_release_year` for that singer.\n\n4. **SQL Query Construction**:\n   - Construct the SQL query as follows:\n     ```sql\n     SELECT song_name, song_release_year\n     FROM singer\n     ORDER BY age\n     LIMIT 1;\n     ```\n\nThis plan ensures that you retrieve the song names and release years for all songs by the youngest singer in the database.\n\nReturn exactly one valid SQL statement.\n",
+          "output": "select song_name, song_release_year from singer order by age limit 1;"
+        }
+      },
+      "exact_match": false,
+      "valid_sql": true,
+      "exec_match": true
+    },
+    {
+      "question": "What are all distinct countries where singers above age 20 are from?",
+      "gold_sql": "SELECT DISTINCT country FROM singer WHERE age  >  20",
+      "db_id": "concert_singer",
+      "agents": {
+        "schema": {
+          "prompt": "\nYou are a Schema Agent. Given a natural language question and table schemas, identify the relevant tables and columns.\n\nQuestion: What are all distinct countries where singers above age 20 are from?\nSchemas:\nstadium:\n  Stadium_ID\n  Location\n  Name\n  Capacity\n  Highest\n  Lowest\n  Average\nsinger:\n  Singer_ID\n  Name\n  Country\n  Song_Name\n  Song_release_year\n  Age\n  Is_male\nconcert:\n  concert_ID\n  concert_Name\n  Theme\n  Stadium_ID\n  Year\nsinger_in_concert:\n  concert_ID\n  Singer_ID\n\nReturn a list of lines in the format:\nTable: col1, col2, ...\nOnly list relevant tables and columns needed to answer the question.\n",
+          "output": "```\nTable: singer\nColumns: Country, Age\n```"
+        },
+        "subproblem": {
+          "prompt": "\nYou are a Subproblem Agent. Given a SQL query, decompose it into subproblems or expressions.\n\nSQL: SELECT DISTINCT country FROM singer WHERE age  >  20\n\nIdentify key clauses (e.g., GROUP BY, ORDER BY, UNION, JOIN) and list subproblems in JSON form:\n{\"subproblems\": [{\"clause\": \"GROUP BY\", \"expression\": \"...\" }, ...]}\nOnly output valid JSON.\n",
+          "output": "```json\n{\n    \"subproblems\": [\n        {\n            \"clause\": \"SELECT\",\n            \"expression\": \"DISTINCT country\"\n        },\n        {\n            \"clause\": \"FROM\",\n            \"expression\": \"singer\"\n        },\n        {\n            \"clause\": \"WHERE\",\n            \"expression\": \"age > 20\"\n        }\n    ]\n}\n```"
+        },
+        "plan": {
+          "prompt": "\nYou are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.\n\nQuestion: What are all distinct countries where singers above age 20 are from?\nSchema Info:\n```\nTable: singer\nColumns: Country, Age\n```\nSubproblems:\n```json\n{\n    \"subproblems\": [\n        {\n            \"clause\": \"SELECT\",\n            \"expression\": \"DISTINCT country\"\n        },\n        {\n            \"clause\": \"FROM\",\n            \"expression\": \"singer\"\n        },\n        {\n            \"clause\": \"WHERE\",\n            \"expression\": \"age > 20\"\n        }\n    ]\n}\n```\n\nProvide a concise and to-the-point plan, each step describing how to build parts of the SQL.\n",
+          "output": "1. **Identify the Table**: Start by specifying the table from which the data will be retrieved. In this case, the table is `singer`.\n\n2. **Select Clause**: Determine the columns needed for the query. We need to select distinct countries, so use `SELECT DISTINCT country`.\n\n3. **From Clause**: Specify the table to query the data from. Use `FROM singer`.\n\n4. **Where Clause**: Apply a condition to filter the data. We are interested in singers above age 20, so use `WHERE age > 20`.\n\n5. **Combine Clauses**: Integrate all parts into a complete SQL query:\n   ```sql\n   SELECT DISTINCT country\n   FROM singer\n   WHERE age > 20;\n   ```\n\nThis plan outlines the steps to construct the SQL query to find all distinct countries where singers above age 20 are from."
+        },
+        "sql": {
+          "prompt": "\nYou are an SQL Generating Agent. Given the plan, write ONLY the final SQL query with no extra text or formatting.\n\nPlan:\n1. **Identify the Table**: Start by specifying the table from which the data will be retrieved. In this case, the table is `singer`.\n\n2. **Select Clause**: Determine the columns needed for the query. We need to select distinct countries, so use `SELECT DISTINCT country`.\n\n3. **From Clause**: Specify the table to query the data from. Use `FROM singer`.\n\n4. **Where Clause**: Apply a condition to filter the data. We are interested in singers above age 20, so use `WHERE age > 20`.\n\n5. **Combine Clauses**: Integrate all parts into a complete SQL query:\n   ```sql\n   SELECT DISTINCT country\n   FROM singer\n   WHERE age > 20;\n   ```\n\nThis plan outlines the steps to construct the SQL query to find all distinct countries where singers above age 20 are from.\n\nReturn exactly one valid SQL statement.\n",
+          "output": "select distinct country from singer where age > 20;"
+        }
+      },
+      "exact_match": false,
+      "valid_sql": true,
+      "exec_match": true
+    },
+    {
+      "question": "What are  the different countries with singers above age 20?",
+      "gold_sql": "SELECT DISTINCT country FROM singer WHERE age  >  20",
+      "db_id": "concert_singer",
+      "agents": {
+        "schema": {
+          "prompt": "\nYou are a Schema Agent. Given a natural language question and table schemas, identify the relevant tables and columns.\n\nQuestion: What are  the different countries with singers above age 20?\nSchemas:\nstadium:\n  Stadium_ID\n  Location\n  Name\n  Capacity\n  Highest\n  Lowest\n  Average\nsinger:\n  Singer_ID\n  Name\n  Country\n  Song_Name\n  Song_release_year\n  Age\n  Is_male\nconcert:\n  concert_ID\n  concert_Name\n  Theme\n  Stadium_ID\n  Year\nsinger_in_concert:\n  concert_ID\n  Singer_ID\n\nReturn a list of lines in the format:\nTable: col1, col2, ...\nOnly list relevant tables and columns needed to answer the question.\n",
+          "output": "```\nTable: singer\nColumns: Country, Age\n```"
+        },
+        "subproblem": {
+          "prompt": "\nYou are a Subproblem Agent. Given a SQL query, decompose it into subproblems or expressions.\n\nSQL: SELECT DISTINCT country FROM singer WHERE age  >  20\n\nIdentify key clauses (e.g., GROUP BY, ORDER BY, UNION, JOIN) and list subproblems in JSON form:\n{\"subproblems\": [{\"clause\": \"GROUP BY\", \"expression\": \"...\" }, ...]}\nOnly output valid JSON.\n",
+          "output": "```json\n{\n    \"subproblems\": [\n        {\n            \"clause\": \"SELECT\",\n            \"expression\": \"DISTINCT country\"\n        },\n        {\n            \"clause\": \"FROM\",\n            \"expression\": \"singer\"\n        },\n        {\n            \"clause\": \"WHERE\",\n            \"expression\": \"age > 20\"\n        }\n    ]\n}\n```"
+        },
+        "plan": {
+          "prompt": "\nYou are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.\n\nQuestion: What are  the different countries with singers above age 20?\nSchema Info:\n```\nTable: singer\nColumns: Country, Age\n```\nSubproblems:\n```json\n{\n    \"subproblems\": [\n        {\n            \"clause\": \"SELECT\",\n            \"expression\": \"DISTINCT country\"\n        },\n        {\n            \"clause\": \"FROM\",\n            \"expression\": \"singer\"\n        },\n        {\n            \"clause\": \"WHERE\",\n            \"expression\": \"age > 20\"\n        }\n    ]\n}\n```\n\nProvide a concise and to-the-point plan, each step describing how to build parts of the SQL.\n",
+          "output": "1. **FROM Clause**: Start by identifying the table from which we need to retrieve data. In this case, the table is `singer`.\n\n2. **WHERE Clause**: Apply a filter to select only those records where the `Age` column is greater than 20. This will ensure that we only consider singers who are above 20 years old.\n\n3. **SELECT Clause**: Use the `SELECT` statement to specify the columns we are interested in. Here, we want to retrieve the `Country` column. To ensure that we get each country only once, use the `DISTINCT` keyword.\n\n4. **Combine Clauses**: Integrate all the clauses to form the complete SQL query. The `FROM` clause specifies the data source, the `WHERE` clause filters the data, and the `SELECT DISTINCT` clause extracts unique countries from the filtered data.\n\nThe final SQL query will look like this:\n```sql\nSELECT DISTINCT Country\nFROM singer\nWHERE Age > 20;\n```"
+        },
+        "sql": {
+          "prompt": "\nYou are an SQL Generating Agent. Given the plan, write ONLY the final SQL query with no extra text or formatting.\n\nPlan:\n1. **FROM Clause**: Start by identifying the table from which we need to retrieve data. In this case, the table is `singer`.\n\n2. **WHERE Clause**: Apply a filter to select only those records where the `Age` column is greater than 20. This will ensure that we only consider singers who are above 20 years old.\n\n3. **SELECT Clause**: Use the `SELECT` statement to specify the columns we are interested in. Here, we want to retrieve the `Country` column. To ensure that we get each country only once, use the `DISTINCT` keyword.\n\n4. **Combine Clauses**: Integrate all the clauses to form the complete SQL query. The `FROM` clause specifies the data source, the `WHERE` clause filters the data, and the `SELECT DISTINCT` clause extracts unique countries from the filtered data.\n\nThe final SQL query will look like this:\n```sql\nSELECT DISTINCT Country\nFROM singer\nWHERE Age > 20;\n```\n\nReturn exactly one valid SQL statement.\n",
+          "output": "select distinct country from singer where age > 20;"
+        }
+      },
+      "exact_match": false,
+      "valid_sql": true,
+      "exec_match": true
+    }
+  ]
+}
