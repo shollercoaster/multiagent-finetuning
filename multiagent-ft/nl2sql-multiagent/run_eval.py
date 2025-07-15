@@ -15,7 +15,7 @@ def evaluate():
     total, exact_match, valid_sql, exec_correct = 0, 0, 0, 0
     results = []
 
-    for idx, item in enumerate(dev[:10]):
+    for idx, item in enumerate(dev[:100]):
         print("\n--- Sample", idx + 1, "---")
         question = item['question']
         gold_sql = item['query']
@@ -25,7 +25,7 @@ def evaluate():
 
         entry = {
             "question": question,
-            "gold_sql": gold_sql,
+            # "gold_sql": gold_sql,
             "db_id": db_id,
             "agents": {}
         }
@@ -38,9 +38,9 @@ def evaluate():
         entry["agents"]["schema"] = {"prompt": schema_prompt, "output": schema_info}
 
         # 2. Subproblem Agent
-        subproblem_prompt = subproblem_agent_prompt(gold_sql)
+        subproblem_prompt = subproblem_agent_prompt(question, schema_info)
         print("[Subproblem Agent Prompt]\n", subproblem_prompt)
-        sub_json = call_agent(subproblem_agent_prompt(gold_sql))
+        sub_json = call_agent(subproblem_prompt)
         print("[Subproblem Agent Output]\n", sub_json)
         entry["agents"]["subproblem"] = {"prompt": subproblem_prompt, "output": sub_json}
 
@@ -74,6 +74,8 @@ def evaluate():
         '''
         # Metric 1: Exact Match
         gold_sql = postprocess_sql(gold_sql)
+        entry["gold_sql"] = gold_sql
+        print(f"Gold SQL: {gold_sql}\n Generated SQL: {sql}\n")
         if sql.strip().lower() == gold_sql.strip().lower():
             exact_match += 1
             entry["exact_match"] = True

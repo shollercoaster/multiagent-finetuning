@@ -25,9 +25,10 @@ def postprocess_sql(sql: str) -> str:
     sql = re.sub(r"^sql[:\s]*", "", sql)
     sql = re.sub(r"```sql|```", "", sql)
     sql = sql.replace("`", "") # .replace("'", "").replace("\"", "") # issue in edgecases like properName = 'Saumya' but it will remove quotes
+    sql = re.sub(r"\s+", " ", sql).strip()
+    sql = re.sub(r"\s+,", ",", sql)
     if sql.endswith(";"):
         sql = sql[:-1].strip()
-    sql = re.sub(r"\s+", " ", sql).strip()
     return sql
 
 def load_spider(dev: bool = True) -> List[Dict]:
