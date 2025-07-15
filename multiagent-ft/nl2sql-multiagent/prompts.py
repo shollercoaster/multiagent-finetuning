@@ -51,7 +51,7 @@ $schema
 """
     ).substitute(question=question.strip(), schema=schema_info.strip())
 
-def subproblem_agent_bird_prompt(question: str, schema_info: str, evidence:str) -> str:
+def bird_subproblem_agent_prompt(question: str, schema_info: str, evidence:str) -> str:
     return Template(
         """
 You are a Subproblem Agent. Your task is to decompose a natural language question into SQL subproblems.
@@ -100,25 +100,38 @@ Provide a concise and to-the-point plan, each step describing how to build parts
 """
     ).substitute(question=question, schema_info=schema_info, subproblem_json=subproblem_json)
 
-def query_plan_agent_prompt(question: str, schema_info: str, subproblem_json: str, def query_plan_agent_prompt(question: str, schema_info: str, subproblem_json: str) -> str:
+def bird_query_plan_agent_prompt(question: str, schema_info: str, subproblem_json: str, evidence: str):
     return Template(
         """
-You are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.
+You are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan. Use the evidence to understand helpful domain information, or additional data needed to generate sql query.
 
-Question:) -> str:
-    return Template(
-        """
-You are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.
 
 Question: $question
 Schema Info:
 $schema_info
 Subproblems:
 $subproblem_json
+Evidence:
+$evidence
 
 Provide a concise and to-the-point plan, each step describing how to build parts of the SQL.
 """
-    ).substitute(question=question, schema_info=schema_info, subproblem_json=subproblem_json)
+    ).substitute(question=question, schema_info=schema_info, subproblem_json=subproblem_json, evidence=evidence.strip())
+
+# 4. SQL Generating Agent prompt
+def bird_sql_agent_prompt(plan: str, evidence: str) -> str:
+    return Template(
+        """
+You are an SQL Generating Agent. Given the plan, write ONLY the final SQL query with no extra text or formatting. Use the evidence to understand helpful domain information, or additional data needed to generate sql query.
+
+Plan:
+$plan
+Evidence:
+$evidence
+
+Return exactly one valid SQL statement.
+"""
+    ).substitute(plan=plan, evidence=evidence)
 
 # 4. SQL Generating Agent prompt
 def sql_agent_prompt(plan: str) -> str:
@@ -133,8 +146,9 @@ Return exactly one valid SQL statement.
 """
     ).substitute(plan=plan)
 
+
 # 5. Critic Agent prompt
-def critic_agent_prompt(sql: str, bug_list: str) -> str:
+def nl2sqlbugs_critic_agent_prompt(sql: str, bug_list: str) -> str:
     return Template(
         """
 You are a Critic Agent. Validate the SQL query against known NL2SQL bug patterns.
@@ -146,3 +160,28 @@ If you find errors, output JSON:{"error": "<description>"}
 Otherwise output:{"valid": true}
 """
     ).substitute(sql=sql, bug_list=bug_list)
+
+def critic_agent_prompt(sql: str) -> str:
+    return Template(
+    """
+You are a Critic Agent. Your job is to inspect a SQL query and determine whether it is logically and structurally valid.
+
+Check for:
+- Logical fallacies (e.g. comparing two incompatible types)
+- Incorrect/missing joins
+- Missing clauses required to answer the question
+- Aggregations used incorrectly
+- Hardcoded values that should come from a column
+- Unused subqueries or tables
+
+SQL Query:
+{sql}
+
+Output a JSON like:
+{{
+  "valid": true/false,
+  "issues": ["description of issue 1", "description of issue 2"]
+}}
+Only return valid JSON.
+"""
+    ).substitute(sql=sql.strip())
