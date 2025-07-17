@@ -6,12 +6,14 @@
   "schema_link": {
     "table_missing": "Referenced table does not exist",
     "col_missing": "Referenced column does not exist",
-    "ambiguous_col": "Ambiguous column reference"
+    "ambiguous_col": "Ambiguous column reference",
+    "incorrect_foreign_key": "Incorrect column used as foreign key"
   },
   "join": {
     "join_missing": "Missing JOIN condition",
     "join_wrong_type": "Incorrect join type",
-    "extra_table": "Unused table in FROM/JOIN"
+    "extra_table": "Unused table in FROM/JOIN",
+    "incorrect_col": "Using incorrect column name to perform join"
   },
   "filter": {
     "where_missing": "Missing WHERE for filter in question",
@@ -21,7 +23,9 @@
   "aggregation": {
     "agg_no_groupby": "Aggregation without GROUP BY",
     "groupby_missing_col": "Missing column in GROUP BY",
-    "having_without_groupby": "HAVING used without GROUP BY"
+    "having_without_groupby": "HAVING used without GROUP BY",
+    "having_incorrect": "Incorrect placement of HAVING",
+    "having_vs_where": "Usage of HAVING confused with usage of WHERE"
   },
   "value": {
     "hardcoded_value": "Hardcoded literal instead of column",
@@ -41,6 +45,7 @@
     "order_by_missing": "ORDER BY needed but missing",
     "limit_missing": "LIMIT needed but missing",
     "duplicate_select": "Duplicate columns in SELECT",
-    "unsupported_function": "Function not supported"
+    "unsupported_function": "Function not supported",
+    "incorrect_foreign_key_relationship": "Used Incorrect foreign key relationship"
   }
 }
