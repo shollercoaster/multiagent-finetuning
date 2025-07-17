@@ -9,9 +9,11 @@ from utils import (
 )
 from utils import *
 from prompts import *
+from analyze_by_subproblems import *
 import difflib
 
-MAX_CRITIC_ATTEMPTS = 4
+MAX_CRITIC_ATTEMPTS = 2
+MAX_REPAIR_ATTEMPTS = 2
 
 def evaluate():
     dev = load_spider(dev=True)
@@ -19,7 +21,7 @@ def evaluate():
     total, exact_match, valid_sql, exec_correct = 0, 0, 0, 0
     results = []
 
-    for idx, item in enumerate(dev[100:105]):
+    for idx, item in enumerate(dev[:100]):
         print("\n--- Sample", idx + 1, "---")
         question = item['question']
         gold_sql = item['query']
@@ -48,17 +50,20 @@ def evaluate():
         print("[Subproblem Agent Output]\n", sub_json)
         entry["agents"]["subproblem"] = {"prompt": subproblem_prompt, "output": sub_json}
 
+        subproblem_specific_clauses = list(set(parse_subproblems(sub_json)))
+        subprob_plan, subprob_sql = clause_specific_prompts(subproblem_specific_clauses)
+
         # 3. Query Plan Agent
-        plan_prompt = query_plan_agent_prompt(question, schema_info, sub_json)
+        plan_prompt = query_plan_agent_prompt(question, schema, sub_json, subprob_plan)
         print("[Query Plan Agent Prompt]\n", plan_prompt)
-        plan = call_agent(query_plan_agent_prompt(question, schema_info, sub_json))
+        plan = call_agent(plan_prompt)
         print("[Query Plan Agent Output]\n", plan)
         entry["agents"]["plan"] = {"prompt": plan_prompt, "output": plan}
 
         # 4. SQL Generating Agent
-        sql_prompt = sql_agent_prompt(plan, schema_info)
+        sql_prompt = sql_agent_prompt(plan, schema, subprob_sql)
         print("[SQL Agent Prompt]\n", sql_prompt)
-        sql = call_agent(sql_agent_prompt(plan, schema_info))
+        sql = call_agent(sql_prompt)
         sql = postprocess_sql(sql)
         print("[SQL Agent Output]\n", sql)
 
@@ -74,10 +79,14 @@ def evaluate():
             critic_history.append(errors)
             if valid:
                 break
+            # repaired_sqls = { error: postprocess_sql(call_agent(repair_agent_prompt(error, sql, question, schema_info))) for error in errors}
+            # sql = postprocess_sql(call_agent(repair_combined_agent_prompt(repaired_sqls, question)))
 
+            # add subproblem related instructions
+            subprob_plan, subprob_sql = clause_specific_prompts(subproblem_specific_clauses)
             # regenerate plan & SQL with error types
-            plan = call_agent(query_plan_agent_prompt(question, schema_info, sub_json, errors))
-            sql = postprocess_sql(call_agent(sql_agent_prompt(plan, schema_info, errors)))
+            plan = call_agent(query_plan_agent_prompt(question, schema, sub_json, subprob_plan, errors))
+            sql = postprocess_sql(call_agent(sql_agent_prompt(plan, schema, subprob_sql, errors)))
             print(f"\nISSUES MENTIONED: {errors}\n, SQL RE-GENERATED: {sql}\n\n")
             gen_rows, gen_err = exec_query(f"../../spider/database/{db_id}/{db_id}.sqlite", sql)
             print(f"\nVALID SQL?: {gen_err is None}\n")
@@ -88,7 +97,7 @@ def evaluate():
             "initial_sql": sql, "critic_history": critic_history,
             "exec_success": not exec_failed
         }]
-
+        
         '''
         entry["agents"]["sql"] = {"prompt": sql_prompt, "output": sql}
         entry["agents"]["critic_issues"] = []
