@@ -1,5 +1,5 @@
 import json, os, re
-from openai import OpenAI
+# from openai import OpenAI
 from typing import List, Dict
 from prompts import (
     schema_agent_prompt, subproblem_agent_prompt,
@@ -11,7 +11,7 @@ import sqlite3
 from subprocess import Popen, PIPE
 from datetime import datetime
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+# client = OpenAI(api_key=OPENAI_API_KEY)
 
 def call_agent(prompt: str, temperature: float = 0.0) -> str:
     resp = client.chat.completions.create(
@@ -144,7 +144,7 @@ def load_schema_without_PKFK(db_id: str) -> str:
 
 
 # NL2SQL bugs file
-BUGS_DB = open("../../nl2sql_bugs.json").read()
+# BUGS_DB = open("../../nl2sql_bugs.json").read()
 
 def exec_query(db_file: str, sql: str):
     conn = sqlite3.connect(db_file)
@@ -213,107 +213,109 @@ def load_schema(db_id: str) -> str:
     print("[load_schema] Schema:\n" + joined)
     return joined
 
-def clause_specific_prompts(clause):
-    clause = clause.upper()
-    if clause == "HAVING" or clause == "GROUPBY" or clause == "GROUP BY":
-        plan = """
-ROUP BY detected:
-- All non-aggregated SELECT columns must be in GROUP BY.
-- GROUP BY should appear after WHERE but before HAVING/ORDER BY.
+def clause_specific_prompts(clauses):
+    plan, sql = "", ""
+    for clause in clauses:
+        clause = clause.upper()
+        if clause == "HAVING" or clause == "GROUPBY" or clause == "GROUP BY":
+            plan += """
+    GROUP BY detected:
+    - All non-aggregated SELECT columns must be in GROUP BY.
+    - GROUP BY should appear after WHERE but before HAVING/ORDER BY.
 
-If HAVING is present:
-- Use HAVING to filter on aggregates, not WHERE.
-"""
-        sql = """
-Ensure:
-- All non-aggregated SELECT columns are in GROUP BY.
-- HAVING filters only aggregated expressions.
-- HAVING appears after GROUP BY.
-- Use WHERE for pre-aggregation filters only.
-"""
-
-
-    if clause == "ORDERBY" or clause == "ORDER BY":
-        plan = """
-ORDER BY detected:
-- Specify column(s) to sort on with direction (ASC/DESC).
-- ORDER BY should be planned after WHERE/ GROUP BY / HAVING steps.
-- If LIMIT or OFFSET is present, ORDER BY must come before them.
-"""
-        sql = """
-Ensure:
-- ORDER BY references valid columns (or aliases defined in SELECT/grouping).
-- ORDER BY is placed after GROUP BY or HAVING if those exist.
-- If LIMIT is used, ORDER BY must guarantee deterministic results.
-"""
+    If HAVING is present:
+    - Use HAVING to filter on aggregates, not WHERE.
+    """
+            sql += """
+    Ensure:
+    - All non-aggregated SELECT columns are in GROUP BY.
+    - HAVING filters only aggregated expressions.
+    - HAVING appears after GROUP BY.
+    - Use WHERE for pre-aggregation filters only.
+    """
 
 
-    if clause == "LIMIT":
-        plan = """
-LIMIT detected:
-- Decide which rows are returned: use ORDER BY to define which subset is used.
-- Plan ORDER BY step before LIMIT to ensure consistent results.
-"""
-        sql = """
-Ensure:
-- Use ORDER BY before LIMIT for deterministic row selection.
-- LIMIT appears as the final clause after ORDER BY.
-"""
+        if clause == "ORDERBY" or clause == "ORDER BY":
+            plan += """
+    ORDER BY detected:
+    - Specify column(s) to sort on with direction (ASC/DESC).
+    - ORDER BY should be planned after WHERE/ GROUP BY / HAVING steps.
+    - If LIMIT or OFFSET is present, ORDER BY must come before them.
+    """
+            sql+= """
+    Ensure:
+    - ORDER BY references valid columns (or aliases defined in SELECT/grouping).
+    - ORDER BY is placed after GROUP BY or HAVING if those exist.
+    - If LIMIT is used, ORDER BY must guarantee deterministic results.
+                    """
 
-    if clause == "JOIN":
-        plan = """
-OIN detected:
-- Plan all necessary JOINs between tables, listing each table and ON condition.
-- Each JOIN must reference valid foreign key paths from schema.
-- Avoid Cartesian products: every JOIN must include a precise ON clause.
-"""
-        sql = """
-Ensure:
-- Include all tables referenced in the plan via JOINS.
-- Each JOIN uses correct foreign key column(s) in ON clause.
-- Do not introduce unintended full joins or missing JOIN conditions.
-"""
 
-    if clause == "UNION":
-        plan = """
-UNION detected:
-- Both subqueries must select the same number of columns with compatible types.
-- Specify UNION vs UNION ALL depending on whether duplicates should be removed.
-- Plan ORDER BY / LIMIT after the entire UNION block.
-"""
-        sql = """
-Ensure:
-- Each UNION branch has identical column count and data types.
-- Use DISTINCT (default UNION) or ALL explicitly.
-- If ORDER BY or LIMIT is applied, apply it only at the end of the UNION output.
-"""
+        if clause == "LIMIT":
+            plan += """
+    LIMIT detected:
+    - Decide which rows are returned: use ORDER BY to define which subset is used.
+    - Plan ORDER BY step before LIMIT to ensure consistent results.
+                    """
+            sql+= """
+    Ensure:
+    - Use ORDER BY before LIMIT for deterministic row selection.
+    - LIMIT appears as the final clause after ORDER BY.
+    """
 
-    if clause == "INTERSECT":
-        plan = """
-📌 INTERSECT detected:
-- Both queries must select the same number and type of columns.
-- Plan for duplicates: INTERSECT removes duplicates unless INTERSECT ALL is specified.
-- ORDER BY / LIMIT clauses apply after the intersect.
-"""
-        sql = """
-Ensure:
-- Each INTERSECT branch selects same number and types of columns.
-- Use INTERSECT or INTERSECT ALL as needed.
-- Place ORDER BY and LIMIT after the intersect expression.
-"""
+        if clause == "JOIN":
+            plan += """
+    OIN detected:
+    - Plan all necessary JOINs between tables, listing each table and ON condition.
+    - Each JOIN must reference valid foreign key paths from schema.
+    - Avoid Cartesian products: every JOIN must include a precise ON clause.
+    """
+            sql+= """
+    Ensure:
+    - Include all tables referenced in the plan via JOINS.
+    - Each JOIN uses correct foreign key column(s) in ON clause.
+    - Do not introduce unintended full joins or missing JOIN conditions.
+    """
 
-    if clause == "EXCEPT":
-        plan = """
-📌 EXCEPT detected:
-- Both queries must select the same number and type of columns.
-- Plan which side to apply EXCEPT (left - right rows).
-- ORDER BY / LIMIT should be planned after the EXCEPT block.
-"""
-        sql = """
-Ensure:
-- EXCEPT branches share identical column count/types.
-- Use EXCEPT or EXCEPT ALL appropriately.
-- Apply ORDER BY and LIMIT only to the final output of the EXCEPT.
-"""
+        if clause == "UNION":
+            plan += """
+    UNION detected:
+    - Both subqueries must select the same number of columns with compatible types.
+    - Specify UNION vs UNION ALL depending on whether duplicates should be removed.
+    - Plan ORDER BY / LIMIT after the entire UNION block.
+    """
+            sql+= """
+    Ensure:
+    - Each UNION branch has identical column count and data types.
+    - Use DISTINCT (default UNION) or ALL explicitly.
+    - If ORDER BY or LIMIT is applied, apply it only at the end of the UNION output.
+    """
+
+        if clause == "INTERSECT":
+            plan += """
+    📌 INTERSECT detected:
+    - Both queries must select the same number and type of columns.
+    - Plan for duplicates: INTERSECT removes duplicates unless INTERSECT ALL is specified.
+    - ORDER BY / LIMIT clauses apply after the intersect.
+    """
+            sql+= """
+    Ensure:
+    - Each INTERSECT branch selects same number and types of columns.
+    - Use INTERSECT or INTERSECT ALL as needed.
+    - Place ORDER BY and LIMIT after the intersect expression.
+    """
+
+        if clause == "EXCEPT":
+            plan += """
+    📌 EXCEPT detected:
+    - Both queries must select the same number and type of columns.
+    - Plan which side to apply EXCEPT (left - right rows).
+    - ORDER BY / LIMIT should be planned after the EXCEPT block.
+    """
+            sql += """
+    Ensure:
+    - EXCEPT branches share identical column count/types.
+    - Use EXCEPT or EXCEPT ALL appropriately.
+    - Apply ORDER BY and LIMIT only to the final output of the EXCEPT.
+    """
 
     return plan, sql
