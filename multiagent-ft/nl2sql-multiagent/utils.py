@@ -8,6 +8,7 @@ from prompts import (
 )
 import sqlite3
 from subprocess import Popen, PIPE
+from datetime import datetime
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -31,8 +32,41 @@ def postprocess_sql(sql: str) -> str:
         sql = sql[:-1].strip()
     return sql
 
-def load_spider(dev: bool = True) -> List[Dict]:
+def is_critic_valid(sql: str, question: str, db_id: str, error_db_path="error_db.json") -> (bool, list):
+    try:
+        response = call_agent(critic_agent_prompt(sql, question))
+        parsed = json.loads(response)
+        valid = parsed.get("valid", False)
+        error_types = parsed.get("error_types", [])
+
+        # If invalid, write to error_db.json
+        if not valid:
+            entry = {
+                "timestamp": str(datetime.now()),
+                "db_id": db_id,
+                "question": question,
+                "sql": sql,
+                "label": False,
+                "error_types": error_types
+            }
+            if os.path.exists(error_db_path):
+                db = json.load(open(error_db_path))
+            else:
+                db = []
+            db.append(entry)
+            # with open(error_db_path, "w") as f:
+                # json.dump(db, f, indent=2)
+
+        return valid, error_types
+
+    except Exception as e:
+        return False, [{"error_type": f"Exception during critic evaluation: {str(e)}"}]
+
+
+def load_spider(dev: bool = True, testing=False) -> List[Dict]:
     path = "../../spider/dev.json" if dev else "../../spider/train_spider.json"
+    if testing == True:
+        path = "testing_limit.json"
     with open(path) as f:
         return json.load(f)
 

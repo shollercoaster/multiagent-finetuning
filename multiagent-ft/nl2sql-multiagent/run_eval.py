@@ -1,14 +1,14 @@
 import json
+from collections import defaultdict
+from typing import List
 from utils import (
     call_agent, load_spider, load_schema, BUGS_DB,
     schema_agent_prompt, subproblem_agent_prompt,
     query_plan_agent_prompt, sql_agent_prompt,
-    critic_agent_prompt, exec_query, BUGS_DB, postprocess_sql
+    critic_agent_prompt, exec_query, BUGS_DB, postprocess_sql, is_critic_valid
 )
+from utils import *
 import difflib
-
-# Load NL2SQL-BUGs file
-BUGS = json.load(open("../../nl2sql_bugs.json"))
 
 def evaluate():
     dev = load_spider(dev=True)
@@ -58,6 +58,21 @@ def evaluate():
         sql = postprocess_sql(sql)
         print("[SQL Agent Output]\n", sql)
         entry["agents"]["sql"] = {"prompt": sql_prompt, "output": sql}
+        entry["agents"]["critic_issues"] = []
+        for _ in range(2):
+            valid_critic, issues = is_critic_valid(sql, question, db_id)
+            print(f"[Critic Feedback] Issues found: {issues}")
+            entry["agents"]["critic_valid"] = valid_critic
+            entry["agents"]["critic_issues"].append(issues)
+            if valid_critic:
+                break
+            else:
+                # Regenerate SQL
+                plan = call_agent(query_plan_agent_prompt(question, schema_info, sub_json, entry["agents"].get("critic_issues")))
+                sql_prompt = sql_agent_prompt(plan, entry["agents"]["critic_issues"])
+                sql = call_agent(sql_prompt)
+                sql = postprocess_sql(sql)
+
         '''
         # 5. Critic Agent + bug fix loop
         bug_found = True

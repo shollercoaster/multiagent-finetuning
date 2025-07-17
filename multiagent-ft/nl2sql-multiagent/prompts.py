@@ -1,5 +1,6 @@
 import os
 from string import Template
+from typing import List
 
 # Load your API key from environment
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -85,8 +86,8 @@ $evidence
     ).substitute(question=question.strip(), schema=schema_info.strip(), evidence=evidence.strip())
 
 # 3. Query Plan Agent prompt
-def query_plan_agent_prompt(question: str, schema_info: str, subproblem_json: str) -> str:
-    return Template(
+def query_plan_agent_prompt(question: str, schema_info: str, subproblem_json: str, critic_issues: list = None) -> str:
+    base_prompt = Template(
         """
 You are a Query Plan Agent. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.
 
@@ -95,10 +96,18 @@ Schema Info:
 $schema_info
 Subproblems:
 $subproblem_json
+$critic_feedback
 
 Provide a concise and to-the-point plan, each step describing how to build parts of the SQL.
 """
-    ).substitute(question=question, schema_info=schema_info, subproblem_json=subproblem_json)
+    )
+    if critic_issues:
+        feedback = "\nIMPORTANT: Avoid the following errors detected in the earlier SQL attempt:\n"
+        feedback += "\n".join([f"- {issue}" for issue in critic_issues])
+    else:
+        feedback = ""
+
+    return base_prompt.substitute(question=question, schema_info=schema_info, subproblem_json=subproblem_json, critic_feedback=feedback)
 
 def bird_query_plan_agent_prompt(question: str, schema_info: str, subproblem_json: str, evidence: str):
     return Template(
@@ -134,17 +143,25 @@ Return exactly one valid SQL statement.
     ).substitute(plan=plan, evidence=evidence)
 
 # 4. SQL Generating Agent prompt
-def sql_agent_prompt(plan: str) -> str:
-    return Template(
+def sql_agent_prompt(plan: str, critic_issues : list = None) -> str:
+    base_prompt = Template(
         """
 You are an SQL Generating Agent. Given the plan, write ONLY the final SQL query with no extra text or formatting.
 
 Plan:
 $plan
+$critic_feedback
 
 Return exactly one valid SQL statement.
 """
-    ).substitute(plan=plan)
+    )
+    if critic_issues:
+        feedback = "\nIMPORTANT: Avoid the following errors found in the earlier SQL attempt:\n"
+        feedback += "\n".join([f"- {issue}" for issue in critic_issues])
+    else:
+        feedback = ""
+
+    return base_prompt.substitute(plan=plan, critic_feedback=feedback)
 
 
 # 5. Critic Agent prompt
@@ -161,7 +178,7 @@ Otherwise output:{"valid": true}
 """
     ).substitute(sql=sql, bug_list=bug_list)
 
-def critic_agent_prompt(sql: str) -> str:
+def critic_agent_prompt(question: str, sql: str) -> str:
     return Template(
     """
 You are a Critic Agent. Your job is to inspect a SQL query and determine whether it is logically and structurally valid.
@@ -174,14 +191,31 @@ Check for:
 - Hardcoded values that should come from a column
 - Unused subqueries or tables
 
+Question:
+{question}
+
 SQL Query:
 {sql}
 
-Output a JSON like:
-{{
-  "valid": true/false,
-  "issues": ["description of issue 1", "description of issue 2"]
-}}
-Only return valid JSON.
+Return **only** one of the following:
+
+1. If the SQL is valid:
+
+{
+   "valid": true
+}
+
+2. If the SQL has issues:
+
+{
+  "valid": false,
+  "error_types": [
+    {"error_type": "explanation"},
+    ...
+  ]
+}
+
+DO NOT add any explanation, markdown, or text outside this JSON. Only valid JSON.
+Only return errors if you find them. Don't complicate things.
 """
-    ).substitute(sql=sql.strip())
+    ).substitute(question=question.strip(), sql=sql.strip())
