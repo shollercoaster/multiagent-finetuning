@@ -8,14 +8,18 @@ from utils import (
     critic_agent_prompt, exec_query, BUGS_DB, postprocess_sql, is_critic_valid
 )
 from utils import *
+from prompts import *
 import difflib
+
+MAX_CRITIC_ATTEMPTS = 4
 
 def evaluate():
     dev = load_spider(dev=True)
+    taxonomy = json.load(open("error_taxonomy.json"))
     total, exact_match, valid_sql, exec_correct = 0, 0, 0, 0
     results = []
 
-    for idx, item in enumerate(dev[:100]):
+    for idx, item in enumerate(dev[100:105]):
         print("\n--- Sample", idx + 1, "---")
         question = item['question']
         gold_sql = item['query']
@@ -52,11 +56,40 @@ def evaluate():
         entry["agents"]["plan"] = {"prompt": plan_prompt, "output": plan}
 
         # 4. SQL Generating Agent
-        sql_prompt = sql_agent_prompt(plan)
+        sql_prompt = sql_agent_prompt(plan, schema_info)
         print("[SQL Agent Prompt]\n", sql_prompt)
-        sql = call_agent(sql_agent_prompt(plan))
+        sql = call_agent(sql_agent_prompt(plan, schema_info))
         sql = postprocess_sql(sql)
         print("[SQL Agent Output]\n", sql)
+
+        gold_rows, gold_err = exec_query(f"../../spider/database/{db_id}/{db_id}.sqlite", gold_sql)
+        gen_rows, gen_err = exec_query(f"../../spider/database/{db_id}/{db_id}.sqlite", sql)
+        exec_failed = not(gen_err is None and gold_err is None and gen_rows == gold_rows)
+
+        critic_history = []
+        attempts = 0
+
+        while exec_failed and attempts < MAX_CRITIC_ATTEMPTS:
+            valid, errors = check_valid_critic_and_push_error(sql, question, db_id, taxonomy)
+            critic_history.append(errors)
+            if valid:
+                break
+
+            # regenerate plan & SQL with error types
+            plan = call_agent(query_plan_agent_prompt(question, schema_info, sub_json, errors))
+            sql = postprocess_sql(call_agent(sql_agent_prompt(plan, schema_info, errors)))
+            print(f"\nISSUES MENTIONED: {errors}\n, SQL RE-GENERATED: {sql}\n\n")
+            gen_rows, gen_err = exec_query(f"../../spider/database/{db_id}/{db_id}.sqlite", sql)
+            print(f"\nVALID SQL?: {gen_err is None}\n")
+            exec_failed = not(gen_err is None and gold_err is None and gen_rows == gold_rows)
+            attempts += 1
+
+        entry["agents"]["critic"] = [{
+            "initial_sql": sql, "critic_history": critic_history,
+            "exec_success": not exec_failed
+        }]
+
+        '''
         entry["agents"]["sql"] = {"prompt": sql_prompt, "output": sql}
         entry["agents"]["critic_issues"] = []
         for _ in range(2):
@@ -73,7 +106,7 @@ def evaluate():
                 sql = call_agent(sql_prompt)
                 sql = postprocess_sql(sql)
 
-        '''
+        
         # 5. Critic Agent + bug fix loop
         bug_found = True
         while bug_found:
