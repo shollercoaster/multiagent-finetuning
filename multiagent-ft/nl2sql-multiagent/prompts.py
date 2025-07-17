@@ -1,4 +1,4 @@
-import os
+import os, json
 from string import Template
 from typing import List
 
@@ -9,15 +9,17 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 def schema_agent_prompt(question: str, schema_list: str) -> str:
     return Template(
         """
-You are a Schema Agent. Given a natural language question and table schemas, identify the relevant tables and columns.
+You are a Schema Agent in an NL2SQL framework. Given a natural language question and table schemas (with columns, PKs, and FKs), identify the relevant tables and columns needed, including intermediate tables for joins.
 
 Question: $question
 Schemas:
 $schema_list
 
 Return a list of lines in the format:
-Table: col1, col2, ...
-Only list relevant tables and columns needed to answer the question.
+Table: PK -> Col, FK, col1, col2, ...
+
+List Foreign Key for tables only if it is relevant.
+ONLY list relevant tables and columns in given format and no other extra characters.
 """
     ).substitute(question=question, schema_list=schema_list)
 
@@ -37,7 +39,7 @@ Output a JSON object containing a list of subproblems:
 {
   "subproblems": [
     { "clause": "SELECT", "expression": "..." },
-    { "clause": "WHERE", "expression": "..." },
+    { "clause": "JOIN", "expression": "..." },
     ...
   ]
 }
@@ -98,11 +100,18 @@ Subproblems:
 $subproblem_json
 $critic_feedback
 
-Provide a concise and to-the-point plan, each step describing how to build parts of the SQL.
+Generate a concise step-by-step SQL plan that **fixes** all listed errors.
+
+Return plan steps like:
+1. FROM tableA
+2. JOIN tableB ON tableA.colX = tableB.colY
+3. JOIN tableC ON tableB.colZ = tableC.colW
+
+Return only the plan (no SQL or extra text).
 """
     )
     if critic_issues:
-        feedback = "\nIMPORTANT: Avoid the following errors detected in the earlier SQL attempt:\n"
+        feedback = "\nPREVIOUS ERRORS TO AVOID:\n" # "\nIMPORTANT: Avoid the following errors detected in the earlier SQL attempt:\n"
         feedback += "\n".join([f"- {issue}" for issue in critic_issues])
     else:
         feedback = ""
@@ -143,25 +152,32 @@ Return exactly one valid SQL statement.
     ).substitute(plan=plan, evidence=evidence)
 
 # 4. SQL Generating Agent prompt
-def sql_agent_prompt(plan: str, critic_issues : list = None) -> str:
+def sql_agent_prompt(plan: str, schema, critic_issues : list = None) -> str:
     base_prompt = Template(
         """
-You are an SQL Generating Agent. Given the plan, write ONLY the final SQL query with no extra text or formatting.
+You are an SQL Generating Agent. Given the plan and table schema, write ONLY the final SQL query with no extra text or formatting.
 
 Plan:
 $plan
-$critic_feedback
+Schema:
+$schema
 
-Return exactly one valid SQL statement.
+Ensure your SQL:
+- Includes all tables in the plan
+- Uses the same join conditions and keys
+- Does not reintroduce previous errors: $critic_feedback
+
+Write ONLY the final valid SQL query. Do NOT include commentary.
 """
     )
     if critic_issues:
-        feedback = "\nIMPORTANT: Avoid the following errors found in the earlier SQL attempt:\n"
-        feedback += "\n".join([f"- {issue}" for issue in critic_issues])
+        # feedback = "\nIMPORTANT: Avoid the following errors found in the earlier SQL attempt:\n"
+        feedback = "\nENSURE THAT YOU ADDRESS THESE ERRORS:\n" + "\n".join(f"- {e}" for e in critic_issues)
+        # feedback += "\n".join([f"- {issue}" for issue in critic_issues])
     else:
         feedback = ""
 
-    return base_prompt.substitute(plan=plan, critic_feedback=feedback)
+    return base_prompt.substitute(plan=plan, critic_feedback=feedback, schema=schema)
 
 
 # 5. Critic Agent prompt
@@ -219,3 +235,36 @@ DO NOT add any explanation, markdown, or text outside this JSON. Only valid JSON
 Only return errors if you find them. Don't complicate things.
 """
     ).substitute(question=question.strip(), sql=sql.strip())
+
+def taxonomy_critic_agent_prompt(question: str, sql: str, taxonomy: dict) -> str:
+    taxonomy_str = json.dumps(taxonomy, indent=2)
+    return f"""
+You are a Critic Agent. Given an NL question and generated SQL, identify structural or semantic errors based on the following taxonomy (9 categories, 31 subtypes):
+
+{taxonomy_str}
+
+Input:
+Question: {question}
+SQL: {sql}
+
+Return **only** JSON following this schema:
+
+If no errors:
+{{
+  "valid": true
+}}
+
+If there are errors:
+{{
+  "valid": false,
+  "error_types": [ "category.subtype", ... ]
+}}
+
+Check also for, and mention the name of column or table that's missing or extra:
+- join_missing_table
+- join_wrong_column
+- table_forbidden
+
+Example: ["join.missing_table - (table_name)", "join.extra_col - (col_name)", "aggregation.agg_no_groupby"]
+
+Return only JSON, no other commentary."""
