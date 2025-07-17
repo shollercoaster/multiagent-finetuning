@@ -6,6 +6,7 @@ from prompts import (
     query_plan_agent_prompt, sql_agent_prompt,
     critic_agent_prompt, OPENAI_API_KEY
 )
+from prompts import *
 import sqlite3
 from subprocess import Popen, PIPE
 from datetime import datetime
@@ -31,6 +32,38 @@ def postprocess_sql(sql: str) -> str:
     if sql.endswith(";"):
         sql = sql[:-1].strip()
     return sql
+
+def check_valid_critic_and_push_error(sql: str, question: str, db_id: str,
+                    taxonomy: dict,
+                    error_db_path="error_db.jsonl") -> (bool, list):
+    # Call critic agent with taxonomy context
+    prompt = taxonomy_critic_agent_prompt(question, sql, taxonomy)
+    response = call_agent(prompt).strip()
+    # print(f"\n CRITIC RESPONSE: {response}\n")
+    try:
+        response = clean_json_prefix(response).strip()
+        print(f"\n CRITIC RESPONSE: {response}\n")
+        parsed = json.loads(response)
+    except json.JSONDecodeError:
+        # In case of malformed JSON, treat as error
+        return False, ["critic.json_decode_error"]
+
+    valid = parsed.get("valid", False)
+    error_types = parsed.get("error_types", [])
+
+    # If invalid, append entry to NDJSON error DB
+    if not valid:
+        entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "db_id": db_id,
+            "question": question,
+            "sql": sql,
+            "error_types": error_types
+        }
+        with open(error_db_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, separators=(",",":")) + "\n")
+
+    return valid, error_types
 
 def is_critic_valid(sql: str, question: str, db_id: str, error_db_path="error_db.json") -> (bool, list):
     try:
@@ -71,10 +104,17 @@ def load_spider(dev: bool = True, testing=False) -> List[Dict]:
         return json.load(f)
 
 
-def load_schema(db_id: str) -> str:
-    sql_path = os.path.join(f"../../spider/database/{db_id}/schema.sql")
-    if not os.path.exists(sql_path):
+def load_schema_without_PKFK(db_id: str) -> str:
+    db_dir = os.path.join("../../spider/database", db_id)
+    # sql_path = os.path.join(f"../../spider/database/{db_id}/schema.sql")
+    print("Directory listing:", os.listdir(f"../../spider/database/{db_id}"))
+    sql_files = [f for f in os.listdir(db_dir) if f.endswith(".sql")]
+    # if not os.path.exists(sql_path):
+        # return ""
+    if not sql_files:
         return ""
+
+    sql_path = os.path.join(db_dir, sql_files[0])
     with open(sql_path, "r") as f:
         lines = f.readlines()
 
@@ -118,4 +158,59 @@ def exec_query(db_file: str, sql: str):
     finally:
         conn.close()
 
-print(postprocess_sql("sql\nSELECT COUNT(Singer_ID) AS NumberOfSingers FROM singer;\n"))
+def clean_json_prefix(text: str) -> str:
+    """
+    Strips all characters before the first '{', including backticks or the word 'json'.
+    """
+    # Regex: find the first '{' and return everything from there
+    match = re.search(r'\{', text)
+    if not match:
+        raise ValueError("No JSON object found in critic response")
+    trimmed = text[match.start():]
+
+    # Optional: remove wrapping backticks ``` or single quotes
+    trimmed = re.sub(r'^```+', '', trimmed)
+    trimmed = re.sub(r"^['\"]+", '', trimmed)
+    end = text.rfind('}')
+    json_str = trimmed[:end+1]
+    json_str = json_str.strip("`\n\r ")
+    return json_str
+
+def load_schema(db_id: str) -> str:
+    db_path = f"../../spider/database/{db_id}/{db_id}.sqlite"
+    if not os.path.exists(db_path):
+        print("[load_schema] DB not found:", db_path)
+        return ""
+
+    conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA foreign_keys=ON;")
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+    tables = [row[0] for row in cur.fetchall()]
+
+    schema_lines = []
+    for tbl in tables:
+        schema_lines.append(f"{tbl}:")
+        # Get columns & PK
+        cur.execute(f"PRAGMA table_info({tbl});")
+        cols = cur.fetchall()
+        col_names = [c[1] for c in cols]
+        pks = [c[1] for c in cols if c[5] > 0]
+        schema_lines.append(f"  Columns: {', '.join(col_names)}")
+        if pks:
+            schema_lines.append(f"  Primary Key: {', '.join(pks)}")
+        # Get FKs
+        cur.execute(f"PRAGMA foreign_key_list({tbl});")
+        fks = cur.fetchall()
+        if fks:
+            schema_lines.append(f"  Foreign Keys:")
+            for fk in fks:
+                _, _, ref_tbl, from_col, to_col, *_ = fk
+                schema_lines.append(f"    - {from_col} → {ref_tbl}.{to_col}")
+
+    conn.close()
+    joined = "\n".join(schema_lines)
+    print("[load_schema] Schema:\n" + joined)
+    return joined
+
+print(load_schema("car_1"))
