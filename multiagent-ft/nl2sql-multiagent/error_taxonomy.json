@@ -47,5 +47,9 @@
     "duplicate_select": "Duplicate columns in SELECT",
     "unsupported_function": "Function not supported",
     "incorrect_foreign_key_relationship": "Used Incorrect foreign key relationship"
+  },
+  "select": {
+    "incorrect_extra_values": "Columns or values selected are incorrect or extra",
+    "incorrect_order": "Values selected are in the wrong order"
   }
 }

@@ -13,6 +13,10 @@ from datetime import datetime
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+def normalize_rows(rows):
+    # Each row is a tuple; we sort each row and also sort the list of rows
+    return sorted([tuple(sorted(map(str, r))) for r in rows])
+
 def call_agent(prompt: str, temperature: float = 0.0) -> str:
     resp = client.chat.completions.create(
         model="gpt-4o",
@@ -33,11 +37,11 @@ def postprocess_sql(sql: str) -> str:
         sql = sql[:-1].strip()
     return sql
 
-def check_valid_critic_and_push_error(sql: str, question: str, db_id: str,
+def check_valid_critic_and_push_error(sql: str, question: str, db_id: str, schema: str,
                     taxonomy: dict,
                     error_db_path="error_db.jsonl") -> (bool, list):
     # Call critic agent with taxonomy context
-    prompt = taxonomy_critic_agent_prompt(question, sql, taxonomy)
+    prompt = taxonomy_critic_agent_prompt(question, sql, taxonomy, schema)
     response = call_agent(prompt).strip()
     # print(f"\n CRITIC RESPONSE: {response}\n")
     try:
@@ -107,7 +111,7 @@ def load_spider(dev: bool = True, testing=False) -> List[Dict]:
 def load_schema_without_PKFK(db_id: str) -> str:
     db_dir = os.path.join("../../spider/database", db_id)
     # sql_path = os.path.join(f"../../spider/database/{db_id}/schema.sql")
-    print("Directory listing:", os.listdir(f"../../spider/database/{db_id}"))
+    # print("Directory listing:", os.listdir(f"../../spider/database/{db_id}"))
     sql_files = [f for f in os.listdir(db_dir) if f.endswith(".sql")]
     # if not os.path.exists(sql_path):
         # return ""
@@ -210,7 +214,7 @@ def load_schema(db_id: str) -> str:
 
     conn.close()
     joined = "\n".join(schema_lines)
-    print("[load_schema] Schema:\n" + joined)
+    # print("[load_schema] Schema:\n" + joined)
     return joined
 
 def clause_specific_prompts(clauses):
@@ -319,3 +323,24 @@ def clause_specific_prompts(clauses):
     """
 
     return plan, sql
+
+def clean_json(text: str) -> str:
+    """
+    Extract the JSON object by:
+    - Finding the first '{'
+    - Finding the last matching '}'
+    - Removing backticks or the word 'json' before/after JSON
+    """
+    # 1. Find first '{'
+    start = text.find('{')
+    if start == -1:
+        raise ValueError("No JSON object found")
+    # 2. Find last '}'
+    end = text.rfind('}')
+    if end == -1:
+        raise ValueError("No closing '}' found")
+    # 3. Extract substring
+    json_str = text[start:end+1]
+    # 4. Strip wrapping backticks or whitespace
+    json_str = json_str.strip("`\n\r ")
+    return json_str

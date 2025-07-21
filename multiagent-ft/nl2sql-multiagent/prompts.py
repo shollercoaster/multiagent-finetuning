@@ -23,6 +23,61 @@ ONLY list relevant tables and columns in given format and no other extra charact
 """
     ).substitute(question=question, schema_list=schema_list)
 
+def alt_schema_linking_agent_prompt(question: str, table_schema: str, schema_agent_output="") -> str:
+    return Template(
+        """
+You are a Schema Linking Agent in an NL2SQL framework. Find the schema_links for generating SQL query for the question based on the database schema and Foreign keys.\n"
+
+Question: $question
+Table Schema:
+$table_schema
+
+Return the schema links in given format:
+Table1: Col1, Col2..
+Foreign Keys = (Table1.ColXYZ, Tabl2.ColXYZ).. 
+ONLY list relevant tables and columns and Foreign Keys in given format and no other extra characters.
+"""
+    ).substitute(
+        question=question,
+        table_schema=table_schema)
+
+# 1.a Schema Linking Agent Prompt
+def schema_linking_agent_prompt(question: str, table_schema: str, schema_agent_output: str) -> str:
+    return Template(
+        """
+You are a Schema Linking Agent in an NL2SQL framework. Your job is to verify the schema agent's output and ensure all necessary schema relationships are included.
+
+Given:
+- A natural language question
+- Database schemas with columns, primary keys (PK), and foreign keys (FK)
+- The output of a Schema Agent listing relevant tables and columns
+
+Check for:
+- Missing or incorrect FK-PK relationships and add them
+- Incomplete column selections (especially join keys)
+- Table alias mismatches
+- Linkage errors that would lead to incorrect joins or groupBy clauses
+
+If issues exist, correct them by editing ONLY the schema agent's output.
+
+Inputs:
+Question: $question
+
+Schemas:
+$schema_list
+
+Schema Agent Output:
+$schema_agent_output
+
+Correct and return the fixed output in the SAME format:
+Table: primary_key_col, foreign_key_col, col1, col2, ...
+"""
+    ).substitute(
+        question=question,
+        schema_list=table_schema,
+        schema_agent_output=schema_agent_output,
+    )
+
 # 2. Subproblem Agent prompt
 def subproblem_agent_prompt(question: str, schema_info: str) -> str:
     return Template(
@@ -89,7 +144,7 @@ $evidence
     ).substitute(question=question.strip(), schema=schema_info.strip(), evidence=evidence.strip())
 
 # 3. Query Plan Agent prompt
-def query_plan_agent_prompt(question: str, schema_info: str, subproblem_json="", subprob_plan="", critic_issues: list = None) -> str:
+def query_plan_agent_prompt(question: str, schema_info: str, subproblem_json, subprob_plan="", critic_issues: list = None) -> str:
     base_prompt = Template(
         """
 You are a Query Plan Agent in an NL2SQL Framework. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.
@@ -99,9 +154,8 @@ Schema Info:
 $schema_info
 Subproblems:
 $subproblem_json
-$critic_feedback
 
-Generate a concise plan that **fixes** all listed errors.
+$critic_feedback
 
 $subprob_plan
 
@@ -116,6 +170,7 @@ Return only the plan (no SQL or extra text).
     if critic_issues:
         feedback = "\nPREVIOUS ERRORS TO AVOID:\n" # "\nIMPORTANT: Avoid the following errors detected in the earlier SQL attempt:\n"
         feedback += "\n".join([f"- {issue}" for issue in critic_issues])
+        feedback += "\n Generate a query plan that FIXES all listed errors.\n"
     else:
         feedback = ""
 
@@ -155,14 +210,14 @@ Return exactly one valid SQL statement.
     ).substitute(plan=plan, evidence=evidence)
 
 # 4. SQL Generating Agent prompt
-def sql_agent_prompt(plan: str, schema, subprob_sql="", critic_issues : list = None) -> str:
+def sql_agent_prompt(plan: str, schema=None, subprob_sql="", critic_issues : list = None) -> str:
     base_prompt = Template(
         """
-You are an SQL Generating Agent. Given the plan and table schema, write ONLY the final SQL query with no extra text or formatting.
+You are an SQL Generating Agent in an NL2SQL framework. Given the plan, write ONLY the final SQL query with no extra text or formatting.
 
 Plan:
 $plan
-Schema:
+
 $schema
 
 $subprob_sql
@@ -178,8 +233,11 @@ Write ONLY the final valid SQL query. Do NOT include commentary.
         # feedback += "\n".join([f"- {issue}" for issue in critic_issues])
     else:
         feedback = ""
-
-    return base_prompt.substitute(plan=plan, critic_feedback=feedback, schema=schema, subprob_sql=subprob_sql)
+    if schema:
+        schema_info = "\n Relevant Table Schema: \n" + schema
+    else:
+        schema_info = ""
+    return base_prompt.substitute(plan=plan, schema=schema_info, critic_feedback=feedback, subprob_sql=subprob_sql)
 
 
 # 5. Critic Agent prompt
@@ -238,16 +296,17 @@ Only return errors if you find them. Don't complicate things.
 """
     ).substitute(question=question.strip(), sql=sql.strip())
 
-def taxonomy_critic_agent_prompt(question: str, sql: str, taxonomy: dict) -> str:
+def taxonomy_critic_agent_prompt(question: str, sql: str, taxonomy: dict, schema) -> str:
     taxonomy_str = json.dumps(taxonomy, indent=2)
     return f"""
 You are a Critic Agent. Given an NL question and generated SQL, identify structural or semantic errors based on the following taxonomy (9 categories, 36 subtypes):
 
-{taxonomy_str}
+{taxonomy}
 
 Input:
 Question: {question}
 SQL: {sql}
+Schema: {schema}
 
 Return **only** JSON following this schema:
 
@@ -270,6 +329,53 @@ Check also for, and mention the name of column or table that's missing or extra:
 Example: ["join.missing_table - (table_name)", "join.extra_col - (col_name)", "aggregation.agg_no_groupby"]
 
 Return only JSON, no other commentary."""
+
+def plan_sanity_agent_prompt(question: str,
+                             schema_output: str,
+                             plan: str,
+                             clause_prompts="",
+                             subproblem_output="") -> str:
+    base = Template(
+        """
+You are a **Plan Sanity Checker Agent** in an NL2SQL framework. Your task is to read the question, review the SQL plan and ensure it **structurally matches** the intended intent from the schema and subproblem breakdown.
+
+Inputs:
+Question:
+$question
+
+Selected Schema Lines:
+$schema_output
+$subproblems
+
+Original Plan to Validate:
+$plan
+
+Check that:
+- All necessary tables appear in `FROM` and `JOIN` steps with correct join keys.
+- GROUP BY, HAVING, ORDER BY, LIMIT clauses appear in the proper order and ONLY when they're necessary.
+- Filter operations (WHERE/HAVING) match the subproblem intent.
+- There are no extra tables or columns beyond intent.
+
+$clause_prompts
+Remove the issues from the original plan, and summarize the revised plan + error highlights into a few sentences. Pass that summary instead of the raw history.
+Example: “Plan summary: joined tables A–B–C via columns X.Y and Y.Z; GROUP BY on col Z. Found missing join to table D on A.K = D.K.”
+""")
+    """
+Return either:
+1. `VALID PLAN` if Original plan is correct
+2. If you spot issues, return a revised plan, step-by-step, with minimal edits, numbered lines, and nothing else.
+    """
+    if subproblem_output != "":
+        subproblems = "\nSubproblems Identified: \n" + subproblem_output
+    else:
+        subproblems = ""
+    return base.substitute(
+        question=question,
+        schema_output=schema_output,
+        subproblems=subproblems, clause_prompts=clause_prompts,
+        plan=plan,
+    )
+
 
 def repair_agent_prompt(issue: str, sql: str, question: str, schema):
     return f"""
