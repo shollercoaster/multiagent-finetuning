@@ -39,7 +39,7 @@ def evaluate():
 
         # 1. Schema Agent
         schema_prompt = schema_agent_prompt(question, schema)
-        print("[Schema Agent Prompt]\n", schema_prompt)
+        # print("[Schema Agent Prompt]\n", schema_prompt)
         schema_info = call_agent(schema_agent_prompt(question, schema))
         print("[Schema Agent Output]\n", schema_info)
         entry["agents"]["schema"] = {"prompt": schema_prompt, "output": schema_info}
@@ -53,7 +53,7 @@ def evaluate():
 
         # 2. Subproblem Agent
         subproblem_prompt = subproblem_agent_prompt(question, corrected_schema)
-        # print("[Subproblem Agent Prompt]\n", subproblem_prompt)
+        print("[Subproblem Agent Prompt]\n", subproblem_prompt)
         sub_json = clean_json(call_agent(subproblem_prompt))
         print("[Subproblem Agent Output]\n", sub_json)
         entry["agents"]["subproblem"] = {"prompt": subproblem_prompt, "output": sub_json}
@@ -179,7 +179,7 @@ def evaluate():
         "results": results
     }
 
-    with open("ablations/full_clausespecific_unorderedeval_results.json", "w") as f:
+    with open("ablations/full_anthropic_unorderedeval_results.json", "w") as f:
         json.dump(output, f, indent=2)
 
     print("\n======= Evaluation Summary =======")

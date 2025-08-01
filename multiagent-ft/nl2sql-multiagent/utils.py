@@ -1,23 +1,29 @@
 import json, os, re
 from openai import OpenAI
 from typing import List, Dict
-from prompts import (
-    schema_agent_prompt, subproblem_agent_prompt,
-    query_plan_agent_prompt, sql_agent_prompt,
-    critic_agent_prompt, OPENAI_API_KEY
-)
 from prompts import *
 import sqlite3
 from subprocess import Popen, PIPE
 from datetime import datetime
+import anthropic
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+# client = OpenAI(api_key=OPENAI_API_KEY)
+client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 def normalize_rows(rows):
     # Each row is a tuple; we sort each row and also sort the list of rows
     return sorted([tuple(sorted(map(str, r))) for r in rows])
 
 def call_agent(prompt: str, temperature: float = 0.0) -> str:
+    resp = client.messages.create(
+        model="claude-3-opus-20240229",
+        max_tokens=2048,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=temperature
+    )
+    return resp.content[0].text.strip()
+
+def call_openai_agent(prompt: str, temperature: float = 0.0) -> str:
     resp = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
