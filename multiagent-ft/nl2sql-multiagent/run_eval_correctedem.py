@@ -125,37 +125,6 @@ def evaluate():
             "exec_success": not exec_failed
         }]
         
-        '''
-        entry["agents"]["sql"] = {"prompt": sql_prompt, "output": sql}
-        entry["agents"]["critic_issues"] = []
-        for _ in range(2):
-            valid_critic, issues = is_critic_valid(sql, question, db_id)
-            print(f"[Critic Feedback] Issues found: {issues}")
-            entry["agents"]["critic_valid"] = valid_critic
-            entry["agents"]["critic_issues"].append(issues)
-            if valid_critic:
-                break
-            else:
-                # Regenerate SQL
-                plan = call_agent(query_plan_agent_prompt(question, schema_info, sub_json, entry["agents"].get("critic_issues")))
-                sql_prompt = sql_agent_prompt(plan, entry["agents"]["critic_issues"])
-                sql = call_agent(sql_prompt)
-                sql = postprocess_sql(sql)
-
-        
-        # 5. Critic Agent + bug fix loop
-        bug_found = True
-        while bug_found:
-            critic_prompt = critic_agent_prompt(sql, json.dumps(BUGS))
-            print("[Critic Agent Prompt]\n", critic_prompt)
-            critic = json.loads(call_agent(critic_agent_prompt(sql, json.dumps(BUGS))))
-            print("[Critic Agent Output]\n", critic_response)
-            if critic.get("valid"):
-                bug_found = False
-            else:
-                plan = call_agent(query_plan_agent_prompt(question, schema_info, sub_json))
-                sql = call_agent(sql_agent_prompt(plan))
-        '''
         # Metric 1: Exact Match
         gold_sql = postprocess_sql(gold_sql)
         entry["gold_sql"] = gold_sql
