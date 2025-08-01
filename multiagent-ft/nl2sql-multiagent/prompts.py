@@ -4,6 +4,7 @@ from typing import List
 
 # Load your API key from environment
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+taxonomy = json.load(open("error_taxonomy.json"))
 
 # 1. Schema Agent prompt
 def schema_agent_prompt(question: str, schema_list: str) -> str:
@@ -295,6 +296,27 @@ DO NOT add any explanation, markdown, or text outside this JSON. Only valid JSON
 Only return errors if you find them. Don't complicate things.
 """
     ).substitute(question=question.strip(), sql=sql.strip())
+
+def critic_finetuned_prompt(question: str, sql: str, error_codes):
+    base = Template("""
+You are a Critic Agent in an NL2SQL framework. Given a text question and the incorrect SQL alongwith the errors in that>
+Question:
+$question
+
+Incorrect SQL:
+$sql
+
+Errors:
+$error
+
+Only return the valid SQL.
+""")
+    if error_codes:
+        feedback = "\n".join([f"{error_code}: {taxonomy.get(error_code, '')}" for error_code in error_codes])
+        feedback += "\n Generate a query that FIXES all listed errors.\n"
+    else:
+        feedback = ""
+    return base.substitute(question=question, sql=sql, error=feedback).strip()
 
 def taxonomy_critic_agent_prompt(question: str, sql: str, taxonomy: dict, schema) -> str:
     taxonomy_str = json.dumps(taxonomy, indent=2)

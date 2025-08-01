@@ -64,8 +64,8 @@ def check_valid_critic_and_push_error(sql: str, question: str, db_id: str, schem
             "sql": sql,
             "error_types": error_types
         }
-        with open(error_db_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, separators=(",",":")) + "\n")
+        # with open(error_db_path, "a", encoding="utf-8") as f:
+            # f.write(json.dumps(entry, separators=(",",":")) + "\n")
 
     return valid, error_types
 
