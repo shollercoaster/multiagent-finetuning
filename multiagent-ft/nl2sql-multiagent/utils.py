@@ -14,6 +14,23 @@ def normalize_rows(rows):
     # Each row is a tuple; we sort each row and also sort the list of rows
     return sorted([tuple(sorted(map(str, r))) for r in rows])
 
+def query_execution(item, sql):
+    gold_sql = item['query']
+    db_id = item['db_id']
+
+    gold_rows, gold_err = exec_query(f"../../spider/database/{db_id}/{db_id}.sqlite", gold_sql)
+    gen_rows, gen_err = exec_query(f"../../spider/database/{db_id}/{db_id}.sqlite", sql)
+    if gen_err is None and gold_err is None:
+        gen_norm = normalize_rows(gen_rows)
+        gold_norm = normalize_rows(gold_rows)
+        if (gen_norm == gold_norm):
+            exec_match = True
+        else:
+            exec_match = False
+    else:
+        exec_match = False
+    return exec_match, gen_err
+
 def call_agent(prompt: str, temperature: float = 0.0) -> str:
     resp = client.messages.create(
         model="claude-3-opus-20240229",
