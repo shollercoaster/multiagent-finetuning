@@ -188,7 +188,7 @@ Return only the plan (no SQL or extra text).
     return base_prompt.substitute(question=question, schema_info=schema_info, subproblem_json=subproblem_json, critic_feedback=feedback, subprob_plan=subprob_plan)
 
 # 4. SQL Generating Agent prompt
-def sql_agent_prompt(question, schema=None, plan: str, subprob_sql="", critic_issues : list = None) -> str:
+def sql_agent_prompt(question, plan: str, schema=None, subprob_sql="", critic_issues : list = None) -> str:
     base_prompt = Template(
         """
 You are a world-class SQL writer AI in an NL2SQL multiagent framework. Your task is to write a single, syntactically correct SQL query that perfectly implements the provided query plan.
