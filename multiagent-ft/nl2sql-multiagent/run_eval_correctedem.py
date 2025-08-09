@@ -70,7 +70,7 @@ def evaluate():
         entry["agents"]["plan"] = {"prompt": plan_prompt, "output": plan}
 
         # 4. SQL Generating Agent
-        sql_prompt = sql_agent_prompt(question, schema, plan) # corrected_schema
+        sql_prompt = sql_agent_prompt(question, plan, corrected_schema)
         # sql_prompt = sql_agent_prompt(plan, schema, subprob_sql)
         # print("[SQL Agent Prompt]\n", sql_prompt)
         sql = call_agent(sql_prompt)
@@ -85,11 +85,12 @@ def evaluate():
         if exec_failed and attempts < MAX_CRITIC_ATTEMPTS:
             correction_plan_prompt = correction_plan_agent_prompt(question, sql, corrected_schema, error)
             correction_plan = call_agent(correction_plan_prompt)
-            print(correction_plan)
-            correction_sql_prompt = correction_sql_agent_prompt(question, schema, correction_plan)
+            print(correction_plan_prompt, correction_plan)
+            correction_sql_prompt = correction_sql_agent_prompt(question, schema, correction_plan, sql)
             corrected_sql = call_agent(correction_sql_prompt)
-            print(corrected_sql)
-            exec_match, error = query_execution(item, corrected_sql)
+            sql = postprocess_sql(corrected_sql)
+            print(correction_sql_prompt, sql)
+            exec_match, error = query_execution(item, sql)
             attempts += 1
             
 
