@@ -13,7 +13,6 @@ from analyze_by_subproblems import *
 import difflib
 
 MAX_CRITIC_ATTEMPTS = 4
-MAX_REPAIR_ATTEMPTS = 2
 
 def evaluate():
     dev = load_spider(dev=True)
@@ -22,7 +21,7 @@ def evaluate():
     results = []
     seen = set() # seen samples in creating dataset for finetuning critic
 
-    for idx, item in enumerate(dev):
+    for idx, item in enumerate(dev[:10]):
         print("\n--- Sample", idx + 1, "---")
         question = item['question']
         gold_sql = item['query']
@@ -85,14 +84,15 @@ def evaluate():
         if exec_failed and attempts < MAX_CRITIC_ATTEMPTS:
             correction_plan_prompt = correction_plan_agent_prompt(question, sql, corrected_schema, error)
             correction_plan = call_agent(correction_plan_prompt)
-            print(correction_plan_prompt, correction_plan)
+            print(f"\n[SQL Correction Plan Output]: \n{correction_plan}")
             correction_sql_prompt = correction_sql_agent_prompt(question, schema, correction_plan, sql)
             corrected_sql = call_agent(correction_sql_prompt)
             sql = postprocess_sql(corrected_sql)
-            print(correction_sql_prompt, sql)
+            print(f"\n[SQL Correction Output]: \n{sql}")
             exec_match, error = query_execution(item, sql)
+            exec_failed = not(exec_match)
             attempts += 1
-            
+            print(f"\nVALID SQL?: {exec_match}, \nWill loop continue? {exec_failed}, {attempts}")
 
         ''' commenting critic loop
         critic_history = []
@@ -186,8 +186,8 @@ def evaluate():
         "results": results
     }
 
-    with open("ablations/full_anthropic_unorderedeval_results.json", "w") as f:
-        json.dump(output, f, indent=2)
+    # with open("ablations/full_anthropic_unorderedeval_results.json", "w") as f:
+        # json.dump(output, f, indent=2)
 
     print("\n======= Evaluation Summary =======")
     print(json.dumps(summary, indent=2))

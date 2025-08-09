@@ -155,7 +155,7 @@ Only output valid JSON — no markdown, no extra commentary.
     ).substitute(question=question.strip(), schema=schema_info.strip())
 
 # 3. Query Plan Agent prompt
-def query_plan_agent_prompt(question: str, schema_info: str, subproblem_json, subprob_plan="", critic_issues: list = None) -> str:
+def query_plan_agent_prompt(question: str, schema_info: str, subproblem_json, subprob_plan="", critic_issues= None) -> str:
     base_prompt = Template(
         """
 You are a Query Plan Agent in an NL2SQL Framework. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.
@@ -178,7 +178,7 @@ Return plan steps with specific table, column names like:
 Return only the plan (no SQL or extra text).
 """
     )
-    if critic_issues != "":
+    if critic_issues:
         feedback = "\nPREVIOUS ERRORS TO AVOID:\n" # "\nIMPORTANT: Avoid the following errors detected in the earlier SQL attempt:\n"
         feedback += "\n".join([f"- {issue}" for issue in critic_issues])
         feedback += "\n Generate a query plan that FIXES all listed errors.\n"
@@ -221,7 +221,7 @@ Write ONLY the final valid SQL query. Do NOT include commentary or unnecessary c
     return base_prompt.substitute(plan=plan, schema=schema_info, critic_feedback=feedback, subprob_sql=subprob_sql, question=question)
 
 def correction_sql_agent_prompt(question: str, schema, correction_plan, wrong_sql) -> str:
-    return """
+    return Template("""
 You are an expert SQL debugger AI in NL2SQL multiagent framework. Your previous attempt to write a query failed.
 Your new task is to analyze the feedback and your incorrect query, then generate a new, corrected query after reading the question and analyzing the relevant schema.
 
@@ -237,8 +237,9 @@ $correction_plan
 $schema
 
 Write ONLY the final valid SQL query. Do NOT include commentary or unnecessary characters in the query.
-""").substitute(question=question, wrong_sql=wrong_sql, schema=schema, correction_plan=correction_plan)
-  
+"""
+    ).substitute(question=question, wrong_sql=wrong_sql, schema=schema, correction_plan=correction_plan)
+
 def correction_plan_agent_prompt(question: str, wrong_sql: str, schema, database_error=None) -> str:
     base = Template(
     """
@@ -252,9 +253,9 @@ You are an expert in a comprehensive error taxonomy, including categories like:
 - `ambiguity.unclear_intent`: When the query doesn't match the question's intent.
 
 **Your Reasoning Process:**
-1.  **Analyze the Ground Truth Error:** First, examine the `Execution Error from Database`. This is the most important clue.
-2.  **Pinpoint the Mismatch:** Compare the error message to the `Failed SQL Query` and the `Pruned Schema` to find the exact source of the error.
-3.  **Formulate a Hypothesis:** State the root cause of the error in a single sentence.
+1.  **Analyze the Ground Truth Error:** First, examine the `Execution Error from Database`. There could STILL be errors even if query executes without any errors.
+2.  **Pinpoint the Mismatch:** Read the question and compare it to the `Failed SQL Query` and the `Pruned Schema` to find the exact source of the error.
+3.  **Formulate a Hypothesis:** State the root cause of the error in a single sentence. Look out for simple errors in column names like 'name' instead of 'song_name' etc.
 4.  **Create the Plan:** Write a concise, step-by-step natural language plan that a junior SQL developer can follow to fix the query.
 
 **Input for Analysis:**

@@ -15,7 +15,8 @@ def normalize_rows(rows):
     return sorted([tuple(sorted(map(str, r))) for r in rows])
 
 def query_execution(item, sql):
-    gold_sql = item['query']
+    sql = postprocess_sql(sql)
+    gold_sql = postprocess_sql(item['query'])
     db_id = item['db_id']
 
     gold_rows, gold_err = exec_query(f"../../spider/database/{db_id}/{db_id}.sqlite", gold_sql)
