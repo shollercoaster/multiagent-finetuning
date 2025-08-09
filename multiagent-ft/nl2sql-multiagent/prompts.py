@@ -188,10 +188,13 @@ Return only the plan (no SQL or extra text).
     return base_prompt.substitute(question=question, schema_info=schema_info, subproblem_json=subproblem_json, critic_feedback=feedback, subprob_plan=subprob_plan)
 
 # 4. SQL Generating Agent prompt
-def sql_agent_prompt(plan: str, schema=None, subprob_sql="", critic_issues : list = None) -> str:
+def sql_agent_prompt(question, schema=None, plan: str, subprob_sql="", critic_issues : list = None) -> str:
     base_prompt = Template(
         """
-You are an SQL Generating Agent in an NL2SQL framework. Given the plan, write ONLY the final SQL query with no extra text or formatting.
+You are a world-class SQL writer AI in an NL2SQL multiagent framework. Your task is to write a single, syntactically correct SQL query that perfectly implements the provided query plan.
+Pay close attention to the table and column names in the schema.
+
+$question
 
 Plan:
 $plan
@@ -202,7 +205,7 @@ $subprob_sql
 
 $critic_feedback
 
-Write ONLY the final valid SQL query. Do NOT include commentary.
+Write ONLY the final valid SQL query. Do NOT include commentary or unnecessary characters in the query.
 """
     )
     if critic_issues:
@@ -215,10 +218,29 @@ Write ONLY the final valid SQL query. Do NOT include commentary.
         schema_info = "\n Relevant Table Schema: \n" + schema
     else:
         schema_info = ""
-    return base_prompt.substitute(plan=plan, schema=schema_info, critic_feedback=feedback, subprob_sql=subprob_sql)
+    return base_prompt.substitute(plan=plan, schema=schema_info, critic_feedback=feedback, subprob_sql=subprob_sql, question=question)
 
-def correction_agent_prompt(question: str, wrong_sql: str, schema, database_error=None) -> str:
-     base = Template(
+def correction_sql_agent_prompt(question: str, schema, correction_plan, wrong_sql) -> str:
+    return """
+You are an expert SQL debugger AI in NL2SQL multiagent framework. Your previous attempt to write a query failed.
+Your new task is to analyze the feedback and your incorrect query, then generate a new, corrected query after reading the question and analyzing the relevant schema.
+
+Question:
+$question 
+
+Incorrect SQL:
+$wrong_sql
+
+Correction query plan- You MUST follow these steps to fix the query:
+$correction_plan
+
+$schema
+
+Write ONLY the final valid SQL query. Do NOT include commentary or unnecessary characters in the query.
+""").substitute(question=question, wrong_sql=wrong_sql, schema=schema, correction_plan=correction_plan)
+  
+def correction_plan_agent_prompt(question: str, wrong_sql: str, schema, database_error=None) -> str:
+    base = Template(
     """
 You are a Senior SQL Debugger. Your sole task is to analyze a failed SQL query and its database error (if any) to create a clear, step-by-step correction plan. Do NOT write the corrected SQL yourself.
 
