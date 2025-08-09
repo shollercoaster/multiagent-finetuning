@@ -70,24 +70,36 @@ def evaluate():
         entry["agents"]["plan"] = {"prompt": plan_prompt, "output": plan}
 
         # 4. SQL Generating Agent
-        sql_prompt = sql_agent_prompt(plan) # corrected_schema
+        sql_prompt = sql_agent_prompt(question, schema, plan) # corrected_schema
         # sql_prompt = sql_agent_prompt(plan, schema, subprob_sql)
         # print("[SQL Agent Prompt]\n", sql_prompt)
         sql = call_agent(sql_prompt)
         sql = postprocess_sql(sql)
         print("[SQL Agent Output]\n", sql)
 
-        gold_rows, gold_err = exec_query(f"../../spider/database/{db_id}/{db_id}.sqlite", gold_sql)
-        gen_rows, gen_err = exec_query(f"../../spider/database/{db_id}/{db_id}.sqlite", sql)
-        exec_failed = not(gen_err is None and gold_err is None and gen_rows == gold_rows)
+        exec_match, error = query_execution(item, sql)
+        exec_failed = not(exec_match)
+        attempts = 0
 
+        # Correction Loop
+        if exec_failed and attempts < MAX_CRITIC_ATTEMPTS:
+            correction_plan_prompt = correction_plan_agent_prompt(question, sql, corrected_schema, error)
+            correction_plan = call_agent(correction_plan_prompt)
+            print(correction_plan)
+            correction_sql_prompt = correction_sql_agent_prompt(question, schema, correction_plan)
+            corrected_sql = call_agent(correction_sql_prompt)
+            print(corrected_sql)
+            exec_match, error = query_execution(item, corrected_sql)
+            attempts += 1
+            
+
+        ''' commenting critic loop
         critic_history = []
         attempts = 0
 
         while exec_failed and attempts < MAX_CRITIC_ATTEMPTS:
             valid, errors = check_valid_critic_and_push_error(sql, question, db_id, corrected_schema, taxonomy)
             critic_history.append(errors)
-
             if not valid:
                 for error_code in errors:
                     key = (question, sql, error_code)
@@ -120,10 +132,12 @@ def evaluate():
             exec_failed = not(gen_err is None and gold_err is None and gen_rows == gold_rows)
             attempts += 1
 
+
         entry["agents"]["critic"] = [{
             "initial_sql": sql, "critic_history": critic_history,
             "exec_success": not exec_failed
         }]
+        '''
         
         # Metric 1: Exact Match
         gold_sql = postprocess_sql(gold_sql)
@@ -143,17 +157,9 @@ def evaluate():
 
         # Metric 3: Execution Accuracy
 
-        gold_rows, gold_err = exec_query(f"../../spider/database/{db_id}/{db_id}.sqlite", gold_sql)
-        if gen_err is None and gold_err is None:
-            gen_norm = normalize_rows(gen_rows)
-            gold_norm = normalize_rows(gold_rows)
-            if (gen_norm == gold_norm):
-                entry["exec_match"] = True
-                exec_correct += 1
-            else:
-                entry["exec_match"] = False
-        else:
-            entry["exec_match"] = False
+        entry["exec_match"] = exec_match
+        if exec_match: 
+            exec_correct += 1
         ea = entry["exec_match"]
         print(f"\n Execution Match: {ea}\n")
         total += 1
