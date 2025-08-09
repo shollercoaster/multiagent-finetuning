@@ -102,7 +102,7 @@ Check for:
 - Table alias mismatches
 - Linkage errors that would lead to incorrect joins or groupBy clauses
 
-If issues exist, correct them by editing ONLY the schema agent's output.
+If issues exist, correct them by editing ONLY the schema agent's output by adding all relevant Tables with all of their columns.
 
 Inputs:
 Question: $question
@@ -114,7 +114,7 @@ Schema Agent Output:
 $schema_agent_output
 
 Correct and return the fixed output in the SAME format:
-Table: primary_key_col, foreign_key_col, col1, col2, ...
+Table: primary_key_col, foreign_key_col, col1, col2, ... all other columns in Table
 """
     ).substitute(
         question=question,
@@ -243,18 +243,20 @@ Write ONLY the final valid SQL query. Do NOT include commentary or unnecessary c
 def correction_plan_agent_prompt(question: str, wrong_sql: str, schema, database_error=None) -> str:
     base = Template(
     """
-You are a Senior SQL Debugger. Your sole task is to analyze a failed SQL query and its database error (if any) to create a clear, step-by-step correction plan. Do NOT write the corrected SQL yourself.
+You are a Senior SQL Debugger. Your sole task is to analyze a failed SQL query to create a clear, step-by-step correction plan. Do NOT write the corrected SQL yourself.
 
 You are an expert in a comprehensive error taxonomy, including categories like:
 - `schema.incorrect_column/table`: Mismatch between query and schema.
 - `syntax.invalid_keyword`: SQL syntax errors.
-- `join.missing_or_incorrect`: Errors in JOIN logic.
+- `join.missing_or_incorrect`: Errors in JOIN logic. Either an unused extra table, missing table or incorrect table or column in join.
 - `aggregation.incorrect_grouping`: Errors with GROUP BY or aggregate functions.
 - `ambiguity.unclear_intent`: When the query doesn't match the question's intent.
+- `select.incorrect_or_extra_values`: Incorrect values or extra/less number of values/column are returned by the query.
+- `missing.clause`: groupby or join or limit or having or any other clause is missing or incorrectly used.
 
-**Your Reasoning Process:**
-1.  **Analyze the Ground Truth Error:** First, examine the `Execution Error from Database`. There could STILL be errors even if query executes without any errors.
-2.  **Pinpoint the Mismatch:** Read the question and compare it to the `Failed SQL Query` and the `Pruned Schema` to find the exact source of the error.
+**Your Reasoning Process:*:
+1.  **Pinpoint the Mismatch:** Read the question and compare it to the `Failed SQL Query` and the `Pruned Schema` to find the exact source of the error.
+2.  **Find error type:** Read error taxonomy and categories given above and try to identify the error in this query. Analyze the joins, aggregation, distinction, limits and except clauses applied carefully.
 3.  **Formulate a Hypothesis:** State the root cause of the error in a single sentence. Look out for simple errors in column names like 'name' instead of 'song_name' etc.
 4.  **Create the Plan:** Write a concise, step-by-step natural language plan that a junior SQL developer can follow to fix the query.
 
@@ -271,7 +273,7 @@ $wrong_sql
 
 $database_error
 
-Your goal is to provide a clear, step-by-step explanation of why the query is wrong and exactly how to fix it. Reference the specific tables and columns that need to be changed. Output this as a natural language correction plan.
+There IS an error in the query. Your goal is to provide a clear, step-by-step explanation of why the query is wrong and exactly how to fix it. Reference the specific tables and columns that need to be changed. Output this as a natural language correction plan.
 """)
     if database_error:
         prompt = "**4. Query Execution Error:** \n" + database_error

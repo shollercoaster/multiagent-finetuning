@@ -50,6 +50,10 @@ def call_openai_agent(prompt: str, temperature: float = 0.0) -> str:
     return resp.choices[0].message.content.strip()
 
 def postprocess_sql(sql: str) -> str:
+    sql_start_pattern = r'\b(select|insert)\b'
+    match = re.search(sql_start_pattern, sql, re.IGNORECASE)
+    if match:
+        sql = sql[match.start():]
     sql = sql.strip().lower()
     sql = re.sub(r"```sql|```", "", sql)
     sql = re.sub(r"^sql[:\s]*", "", sql)
