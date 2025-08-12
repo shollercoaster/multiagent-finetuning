@@ -289,7 +289,55 @@ There IS an error in the query. DO NOT return "no error, query seems fine". Prov
     if database_error:
         prompt = "**4. Query Execution Error:** \n" + database_error
     return base.substitute(question=question.strip(), wrong_sql=wrong_sql.strip(), schema=schema, database_error=database_error)
-       
+
+def correction_plan_agent_prompt_with_scratchpad(scratchpad_context: str) -> str:
+    """
+    Generates a prompt for the Correction Plan agent using the scratchpad's history.
+    """
+    # The last attempt is implicitly the one we are trying to fix.
+    # The context provides the history leading up to it.
+    return f"""
+You are a Senior SQL Debugger in an NL2SQL multiagent framework. Your sole task is to analyze a failed SQL query to create a clear, step-by-step correction plan. Do NOT write the corrected SQL yourself.
+
+You are an expert in a comprehensive error taxonomy, including categories like:
+- `schema.incorrect_column/table`: Mismatch between query and schema.
+- `join.missing_or_incorrect`: Errors in JOIN logic. Either an unused extra table, missing table or incorrect table or column in join.
+- `aggregation.incorrect_grouping`: Errors with GROUP BY or aggregate functions.
+- `ambiguity.unclear_intent`: When the query doesn't match the question's intent.
+- `select.incorrect_or_extra_values`: Incorrect values or extra/less number of values/column are returned by the query.
+- `missing.clause`: groupby or join or limit or having or any other clause is missing or incorrectly used.
+
+**Your Reasoning Process:*:
+1.  **Pinpoint the Mismatch:** Read the question and compare it to the `Failed SQL Query` and the `Pruned Schema` to find the exact source of the error.
+2.  **Find error type:** Read error taxonomy and categories given above and try to identify the error in this query. Analyze the joins, aggregation, distinction, limits and except clauses applied carefully.
+3.  **Formulate a Hypothesis:** State the root cause of the error in a single sentence. Look out for simple errors in column names like 'name' instead of 'song_name' etc.
+4.  **Create the Plan:** Write a concise, step-by-step natural language plan that a junior SQL developer can follow to fix the query.
+
+Analyze the history of failed attempts for a query and create a NEW correction plan for the LATEST failure.
+
+**History of Failed Attempts:**
+{scratchpad_context}
+
+**Your Task:**
+Based on the **final** failed attempt in the history, and learning from all previous mistakes, provide a clear, step-by-step correction plan. Do NOT write the corrected SQL yourself.
+"""
+
+def sql_correction_prompt_with_scratchpad(scratchpad_context: str, latest_correction_plan: str) -> str:
+    """
+    Generates a prompt for the SQL agent using the scratchpad and the latest correction plan.
+    """
+    return f"""You are an expert SQL debugger AI in NL2SQL multiagent framework. Your previous attempts to write a query failed.
+Your new task is to analyze the history of previous failures, then generate a new, corrected query after reading the question and analyzing the relevant schema.
+
+**Full History of Previous Failures:**
+{scratchpad_context}
+
+**NEW Correction Plan to Execute:**
+{latest_correction_plan}
+
+Based on the new correction plan and learning from the entire history, generate a new, valid SQL query. Write ONLY the final SQL query.
+"""
+
 def critic_agent_prompt(question: str, sql: str) -> str:
     return Template(
     """
