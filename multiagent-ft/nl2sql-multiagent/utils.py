@@ -1,13 +1,13 @@
 import json, os, re
 from openai import OpenAI
-from typing import List, Dict
+from typing import List, Dict, Optional
 from prompts import *
 import sqlite3
 from subprocess import Popen, PIPE
 from datetime import datetime
 import anthropic
 
-# client = OpenAI(api_key=OPENAI_API_KEY)
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 def normalize_rows(rows):
@@ -32,6 +32,57 @@ def query_execution(item, sql):
         exec_match = False
     return exec_match, gen_err
 
+def call_agent(
+    prompt: str,
+    model: str = "claude-sonnet-4-20250514", # "claude-3-5-sonnet-20240620",
+    temperature: float = 0.0,
+    system: Optional[str] = None,
+    max_tokens: int = 4096,
+    top_p: Optional[float] = None,
+    stop_sequences: Optional[List[str]] = None
+) -> str:
+    """
+    Calls the Anthropic API with a comprehensive set of parameters for fine-tuned control.
+
+    Args:
+        prompt: The main user prompt/question for the agent.
+        model: The model to use. Defaults to Claude 3.5 Sonnet.
+        temperature: Controls randomness (0.0 for deterministic).
+        system: High-level instructions or persona for the model.
+        max_tokens: The maximum number of tokens to generate.
+        top_p: Nucleus sampling. Use instead of temperature for different randomness control.
+        stop_sequences: A list of strings where the API will stop generating further tokens.
+
+    Returns:
+        The text content of the model's response.
+    """
+    messages = [{"role": "user", "content": prompt}]
+    
+    # The Anthropic API recommends using the 'system' parameter for instructions/persona
+    # and only passing the core request in the 'messages' list.
+    api_params = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+
+    # Add optional parameters only if they are provided to avoid sending null values
+    if system:
+        api_params["system"] = system
+    if top_p is not None:
+        api_params["top_p"] = top_p
+    if stop_sequences:
+        api_params["stop_sequences"] = stop_sequences
+
+    try:
+        response = client.messages.create(**api_params)
+        return response.content[0].text.strip()
+    except Exception as e:
+        print(f"An error occurred while calling the Anthropic API: {e}")
+        return f"Error: API call failed with message: {e}"
+
+'''
 def call_agent(prompt: str, temperature: float = 0.0) -> str:
     resp = client.messages.create(
         model="claude-3-opus-20240229",
@@ -42,13 +93,21 @@ def call_agent(prompt: str, temperature: float = 0.0) -> str:
     return resp.content[0].text.strip()
 
 def call_openai_agent(prompt: str, temperature: float = 0.0) -> str:
-    resp = client.chat.completions.create(
-        model="gpt-4o",
+    resp = openai_client.chat.completions.create(
+        model="o3",
         messages=[{"role": "user", "content": prompt}],
-        temperature=temperature
+        # temperature=temperature
     )
     return resp.choices[0].message.content.strip()
 
+def call_agent(prompt: str, temperature: float = 0.0) -> str:
+    resp = openai_client.chat.completions.create(
+        model="o4-mini",
+        messages=[{"role": "user", "content": prompt}],
+        # temperature=temperature
+    )
+    return resp.choices[0].message.content.strip()
+'''
 def postprocess_sql(sql: str) -> str:
     sql_start_pattern = r'\b(select|insert)\b'
     match = re.search(sql_start_pattern, sql, re.IGNORECASE)

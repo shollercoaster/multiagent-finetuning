@@ -70,15 +70,27 @@ ONLY list relevant tables and columns in given format and no other extra charact
 def alt_schema_linking_agent_prompt(question: str, table_schema: str, schema_agent_output="") -> str:
     return Template(
         """
-You are a Schema Linking Agent in an NL2SQL framework. Find the schema_links for generating SQL query for the question based on the database schema and Foreign keys.\n"
+You are a Schema Linking Agent in an NL2SQL framework.Return the relevant schema links for generating SQL query for the question.\n"
+
+Given:
+- A natural language question
+- Database schemas with columns, primary keys (PK), and foreign keys (FK)
+
+Cross-check your schema for:
+- Missing or incorrect FK-PK relationships and add them
+- Incomplete column selections (especially join keys)
+- Table alias mismatches
+- Linkage errors that would lead to incorrect joins or groupBy clauses
 
 Question: $question
+
 Table Schema:
 $table_schema
 
 Return the schema links in given format:
-Table1: Col1, Col2..
-Foreign Keys = (Table1.ColXYZ, Tabl2.ColXYZ).. 
+
+Table: primary_key_col, foreign_key_col, col1, col2, ... all other columns in Table
+
 ONLY list relevant tables and columns and Foreign Keys in given format and no other extra characters.
 """
     ).substitute(
@@ -155,7 +167,7 @@ Only output valid JSON — no markdown, no extra commentary.
     ).substitute(question=question.strip(), schema=schema_info.strip())
 
 # 3. Query Plan Agent prompt
-def query_plan_agent_prompt(question: str, schema_info: str, subproblem_json, subprob_plan="", critic_issues= None) -> str:
+def query_plan_agent_prompt(question: str, schema_info: str, subproblem_json="", subprob_plan="", critic_issues= None) -> str:
     base_prompt = Template(
         """
 You are a Query Plan Agent in an NL2SQL Framework. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.
@@ -243,11 +255,10 @@ Write ONLY the final valid SQL query. Do NOT include commentary or unnecessary c
 def correction_plan_agent_prompt(question: str, wrong_sql: str, schema, database_error=None) -> str:
     base = Template(
     """
-You are a Senior SQL Debugger. Your sole task is to analyze a failed SQL query to create a clear, step-by-step correction plan. Do NOT write the corrected SQL yourself.
+You are a Senior SQL Debugger in an NL2SQL multiagent framework. Your sole task is to analyze a failed SQL query to create a clear, step-by-step correction plan. Do NOT write the corrected SQL yourself.
 
 You are an expert in a comprehensive error taxonomy, including categories like:
 - `schema.incorrect_column/table`: Mismatch between query and schema.
-- `syntax.invalid_keyword`: SQL syntax errors.
 - `join.missing_or_incorrect`: Errors in JOIN logic. Either an unused extra table, missing table or incorrect table or column in join.
 - `aggregation.incorrect_grouping`: Errors with GROUP BY or aggregate functions.
 - `ambiguity.unclear_intent`: When the query doesn't match the question's intent.
@@ -273,7 +284,7 @@ $wrong_sql
 
 $database_error
 
-There IS an error in the query. Your goal is to provide a clear, step-by-step explanation of why the query is wrong and exactly how to fix it. Reference the specific tables and columns that need to be changed. Output this as a natural language correction plan.
+There IS an error in the query. DO NOT return "no error, query seems fine". Provide a clear, step-by-step explanation of why the query is wrong and exactly how to fix it. Output this as a natural language correction plan.
 """)
     if database_error:
         prompt = "**4. Query Execution Error:** \n" + database_error
