@@ -170,7 +170,7 @@ Only output valid JSON — no markdown, no extra commentary.
 def query_plan_agent_prompt(question: str, schema_info: str, subproblem_json="", subprob_plan="", critic_issues= None) -> str:
     base_prompt = Template(
         """
-You are a Query Plan Agent in an NL2SQL Framework. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan.
+You are a Query Plan Agent in an NL2SQL Framework. Using the question, schema info, and subproblems, generate a step-by-step SQL query plan. Use Chain of Thought to think through the process.
 
 Question: $question
 Schema Info:
@@ -255,7 +255,7 @@ Write ONLY the final valid SQL query. Do NOT include commentary or unnecessary c
 def correction_plan_agent_prompt(question: str, wrong_sql: str, schema, database_error=None) -> str:
     base = Template(
     """
-You are a Senior SQL Debugger in an NL2SQL multiagent framework. Your sole task is to analyze a failed SQL query to create a clear, step-by-step correction plan. Do NOT write the corrected SQL yourself.
+You are a Senior SQL Debugger in an NL2SQL multiagent framework. Your sole task is to analyze a failed SQL query to create a clear, step-by-step correction plan using Chain of Thought. Do NOT write the corrected SQL yourself.
 
 You are an expert in a comprehensive error taxonomy, including categories like:
 
@@ -278,7 +278,7 @@ You are an expert in a comprehensive error taxonomy, including categories like:
 **1. Original Question:**
 "$question"
 
-**2. Pruned Schema (Only relevant tables are shown):**
+**2. Relevant Schema:**
 $schema
 
 **3. Failed SQL Query:**
@@ -286,10 +286,30 @@ $wrong_sql
 
 $database_error
 
-There IS an error in the query. DO NOT return "no error, query seems fine". Provide a clear, step-by-step explanation of why the query is wrong and exactly how to fix it. Output this as a natural language correction plan.
+There IS an error in the query. DO NOT return "no error, query seems fine". Provide a clear, step-by-step explanation of why the query is wrong and exactly how to fix it. Return ONLY the query error and correction plan, don't generate SQL.
 """)
     if database_error:
         prompt = "**4. Query Execution Error:** \n" + database_error
+    return base.substitute(question=question.strip(), wrong_sql=wrong_sql.strip(), schema=schema, database_error=database_error)
+
+def sql_without_correction_plan_agent_prompt(question: str, wrong_sql: str, schema, database_error=None) -> str:
+    base = Template(
+    """
+You are a Senior SQL Debugger in an NL2SQL multiagent framework. Your sole task is to analyze a failed SQL query, the question and schema to rectify the error and return the correct SQL query.
+
+Question: $question
+
+Schema:
+$schema
+
+Wrong SQL: $wrong_sql
+
+$database_error
+
+Return ONLY the valid SQL query and no extra characters.
+""")
+    if database_error:
+        prompt = "Query Execution Error: \n" + database_error
     return base.substitute(question=question.strip(), wrong_sql=wrong_sql.strip(), schema=schema, database_error=database_error)
 
 def correction_plan_agent_prompt_with_scratchpad(scratchpad_context: str) -> str:
@@ -323,6 +343,23 @@ Analyze the history of failed attempts for a query and create a NEW correction p
 **Your Task:**
 Based on the **final** failed attempt in the history, and learning from all previous mistakes, provide a clear, step-by-step correction plan. Do NOT write the corrected SQL yourself.
 """
+
+def sql_without_query_plan_agent_prompt(question: str, schema_info: str, subproblem_json="", subprob_plan="", critic_issues= None) -> str:
+    base_prompt = Template(
+        """
+You are a SQL Generating Agent in an NL2SQL Framework. Using the question, schema info, and subproblems, generate ONLY the valid SQL query. 
+
+Question: $question
+
+Schema Info:
+$schema_info
+
+Subproblems:
+$subproblem_json
+
+Return only the valid SQL, no extra text.
+""")
+    return base_prompt.substitute(question=question, schema_info=schema_info, subproblem_json=subproblem_json)
 
 def sql_correction_prompt_with_scratchpad(scratchpad_context: str, latest_correction_plan: str) -> str:
     """

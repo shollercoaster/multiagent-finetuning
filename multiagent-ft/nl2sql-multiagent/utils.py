@@ -8,6 +8,31 @@ from datetime import datetime
 import anthropic
 
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+def load_local_model(model_id="Qwen/Qwen2.5-1.5B-Instruct"):
+    """
+    Loads the Llama 3.1 8B Instruct model and tokenizer in 4-bit precision.
+    """
+    model_id = model_id # "Qwen/Qwen2.5-1.5B-Instruct" # "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    print(f"Loading model: {model_id}...")
+
+    # Load the tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+
+    # Load the model with 8-bit quantization
+    model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        torch_dtype=torch.bfloat16,  # Use bfloat16 for efficiency
+        device_map="auto",          # Automatically uses the GPU
+        load_in_4bit=True,          # Enable 4-bit quantization
+    )
+    print("Model loaded successfully.")
+    return model, tokenizer
+
+model, tokenizer = load_local_model()
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 def normalize_rows(rows):
@@ -32,58 +57,12 @@ def query_execution(item, sql):
         exec_match = False
     return exec_match, gen_err
 
-def call_agent(
-    prompt: str,
-    model: str = "claude-sonnet-4-20250514", # "claude-3-5-sonnet-20240620",
-    temperature: float = 0.0,
-    system: Optional[str] = None,
-    max_tokens: int = 4096,
-    top_p: Optional[float] = None,
-    stop_sequences: Optional[List[str]] = None
-) -> str:
-    """
-    Calls the Anthropic API with a comprehensive set of parameters for fine-tuned control.
-
-    Args:
-        prompt: The main user prompt/question for the agent.
-        model: The model to use. Defaults to Claude 3.5 Sonnet.
-        temperature: Controls randomness (0.0 for deterministic).
-        system: High-level instructions or persona for the model.
-        max_tokens: The maximum number of tokens to generate.
-        top_p: Nucleus sampling. Use instead of temperature for different randomness control.
-        stop_sequences: A list of strings where the API will stop generating further tokens.
-
-    Returns:
-        The text content of the model's response.
-    """
-    messages = [{"role": "user", "content": prompt}]
-    
-    # The Anthropic API recommends using the 'system' parameter for instructions/persona
-    # and only passing the core request in the 'messages' list.
-    api_params = {
-        "model": model,
-        "messages": messages,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-    }
-
-    # Add optional parameters only if they are provided to avoid sending null values
-    if system:
-        api_params["system"] = system
-    if top_p is not None:
-        api_params["top_p"] = top_p
-    if stop_sequences:
-        api_params["stop_sequences"] = stop_sequences
-
-    try:
-        response = client.messages.create(**api_params)
-        return response.content[0].text.strip()
-    except Exception as e:
-        print(f"An error occurred while calling the Anthropic API: {e}")
-        return f"Error: API call failed with message: {e}"
-
-'''
-def call_agent(prompt: str, temperature: float = 0.0) -> str:
+def call_agent(prompt: str, model=None, temperature: float = 0.0) -> str:
+    if model:
+            resp = openai_client.chat.completions.create(
+            model= "gpt-5", # "gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],)
+            return resp.choices[0].message.content.strip()
     resp = client.messages.create(
         model="claude-3-opus-20240229",
         max_tokens=2048,
@@ -92,22 +71,14 @@ def call_agent(prompt: str, temperature: float = 0.0) -> str:
     )
     return resp.content[0].text.strip()
 
-def call_openai_agent(prompt: str, temperature: float = 0.0) -> str:
+def call_gpt5_agent(prompt: str, temperature: float = 0.0) -> str:
     resp = openai_client.chat.completions.create(
-        model="o3",
+        model="gpt-5",
         messages=[{"role": "user", "content": prompt}],
         # temperature=temperature
     )
     return resp.choices[0].message.content.strip()
 
-def call_agent(prompt: str, temperature: float = 0.0) -> str:
-    resp = openai_client.chat.completions.create(
-        model="o4-mini",
-        messages=[{"role": "user", "content": prompt}],
-        # temperature=temperature
-    )
-    return resp.choices[0].message.content.strip()
-'''
 def postprocess_sql(sql: str) -> str:
     sql_start_pattern = r'\b(select|insert)\b'
     match = re.search(sql_start_pattern, sql, re.IGNORECASE)
@@ -155,6 +126,58 @@ def check_valid_critic_and_push_error(sql: str, question: str, db_id: str, schem
             # f.write(json.dumps(entry, separators=(",",":")) + "\n")
 
     return valid, error_types
+
+def call_agent_local(
+    prompt: str,
+    model=model,
+    tokenizer=tokenizer,
+    system_prompt: str = "You are an expert agent in a Text2SQL framework specializing in a single task. Please follow the user's instructions carefully."
+) -> str:
+    """
+    Calls a local Hugging Face model to get a response.
+
+    Args:
+        prompt: The user's prompt.
+        model: The loaded Hugging Face model object.
+        tokenizer: The loaded Hugging Face tokenizer object.
+        system_prompt: The system-level instruction for the model.
+
+    Returns:
+        The model's generated text response.
+    """
+    # Llama 3.1 uses a specific chat template.
+    # We must format the input this way for the model to perform well.
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": prompt},
+    ]
+
+    # This function correctly formats the messages into a single string
+    # with the required special tokens (e.g., <|begin_of_text|>, <|eot_id|>)
+    input_prompt = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True
+    )
+
+    # Tokenize the formatted prompt
+    input_ids = tokenizer(input_prompt, return_tensors="pt").to(model.device)
+
+    # Generate the response
+    outputs = model.generate(
+        **input_ids,
+        max_new_tokens=2048,   # Max tokens to generate
+        do_sample=False,       # Set to False for deterministic output
+        temperature=None,      # Not needed when do_sample=False
+        top_p=None,            # Not needed when do_sample=False
+        pad_token_id=tokenizer.eos_token_id # Set pad token to end-of-sequence token
+    )
+
+    # Decode the output, skipping the original prompt
+    response_ids = outputs[0][input_ids["input_ids"].shape[1]:]
+    response_text = tokenizer.decode(response_ids, skip_special_tokens=True)
+
+    return response_text.strip()
 
 def is_critic_valid(sql: str, question: str, db_id: str, error_db_path="error_db.json") -> (bool, list):
     try:
